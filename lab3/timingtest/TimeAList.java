@@ -28,7 +28,7 @@ public class TimeAList {
 
         //Initiating the test number
         int n = 1000;
-        int maxTestNumber = 10000000;
+        int maxTestNumber = 128000;
         while (n <= maxTestNumber){
             Test.addLast(n);
             AList<Integer> Execute = new AList<>();
