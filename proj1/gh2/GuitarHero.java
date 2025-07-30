@@ -20,8 +20,8 @@ public class GuitarHero {
             if (StdDraw.hasNextKeyTyped()) {
                 char key = StdDraw.nextKeyTyped();
                 if (keyboard.indexOf(key) != -1) {
-                     allStrings[keyboard.indexOf(key)].pluck(); 
-                    }
+                    allStrings[keyboard.indexOf(key)].pluck(); 
+                }
             }
 
             /* compute the superposition of samples */
