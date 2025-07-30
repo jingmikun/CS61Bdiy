@@ -2,17 +2,17 @@ package deque;
 
 import java.util.Iterator;
 
-public class LinkedListDeque<Item>
-implements Iterable<Item> {
+public class LinkedListDeque<T>
+implements Iterable<T>,Deque<T> {
     private IntNode sentinel;
     private int size;
 
     public class IntNode{
-        public Item first;
+        public T first;
         public IntNode next;
         public IntNode prev;
 
-        public IntNode(Item item, IntNode n,IntNode p){
+        public IntNode(T item, IntNode n,IntNode p){
             first = item;
             next = n;
             prev = p;
@@ -26,7 +26,7 @@ implements Iterable<Item> {
         size = 0;
     }
 
-    public void addFirst(Item item){
+    public void addFirst(T item){
         IntNode remain = sentinel.next;
         IntNode newNode = new IntNode(item,remain,sentinel);
 
@@ -36,7 +36,7 @@ implements Iterable<Item> {
         if (size == 1){sentinel.prev = newNode;}
     }
 
-    public void addLast(Item item){
+    public void addLast(T item){
         IntNode remain = sentinel.prev;
         IntNode newNode = new IntNode(item,sentinel,remain);
 
@@ -44,10 +44,6 @@ implements Iterable<Item> {
         sentinel.prev = newNode;
         remain.next = newNode;
         if (size == 1){sentinel.next = newNode;}
-    }
-
-    public boolean isEmpty(){
-        return size == 0;
     }
 
     public int size(){
@@ -64,25 +60,25 @@ implements Iterable<Item> {
         System.out.println();
     }
 
-    public Item removeFirst(){
+    public T removeFirst(){
         if (size == 0){return null;}
-        Item returnValue = sentinel.next.first;
+        T returnValue = sentinel.next.first;
         sentinel.next = sentinel.next.next;
         sentinel.next.prev = sentinel;
         size --;
         return returnValue;
     }
 
-    public Item removeLast(){
+    public T removeLast(){
         if (size == 0){return null;}
-        Item returnValue = sentinel.prev.first;
+        T returnValue = sentinel.prev.first;
         sentinel.prev = sentinel.prev.prev;
         sentinel.prev.next = sentinel;
         size --;
         return returnValue;
     }
 
-    public Item get(int index){
+    public T get(int index){
         IntNode p = sentinel;
         int counter = index;
 
@@ -95,12 +91,12 @@ implements Iterable<Item> {
         return p.first;
     }
 
-    public Item getRecursive(int index){
+    public T getRecursive(int index){
         if (index > size-1) {return null;}
         return getRecursive(index,sentinel.next);
     }
 
-    private Item getRecursive(int index,IntNode start){
+    private T getRecursive(int index,IntNode start){
         if (index == 0){
             return start.first;
         }
@@ -109,11 +105,11 @@ implements Iterable<Item> {
         }
     }
 
-    public Iterator<Item> iterator(){
+    public Iterator<T> iterator(){
         return new LinkedListIterator();
     }
 
-    private class LinkedListIterator implements Iterator<Item>{
+    private class LinkedListIterator implements Iterator<T>{
 
         IntNode p = sentinel.next;
         @Override
@@ -122,8 +118,8 @@ implements Iterable<Item> {
         }
 
         @Override
-        public Item next() {
-            Item toBeReturn = p.first;
+        public T next() {
+            T toBeReturn = p.first;
             p = p.next;
             return toBeReturn;
         }
@@ -132,7 +128,7 @@ implements Iterable<Item> {
     @Override
     public boolean equals(Object o){
         if (!(o instanceof LinkedListDeque)){return false;}
-        LinkedListDeque<Item> other = (LinkedListDeque<Item>) o;
+        LinkedListDeque<T> other = (LinkedListDeque<T>) o;
 
         if (this.size()!=other.size()){return false;}
         for (int i = 0; i < this.size();i++){

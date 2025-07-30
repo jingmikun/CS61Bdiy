@@ -3,7 +3,7 @@ package deque;
 import java.util.Iterator;
 
 public class ArrayDeque<T>
-implements Iterable<T>{
+implements Iterable<T>,Deque<T>{
 
     private int nextLast;
     private int nextFirst;
@@ -84,10 +84,6 @@ implements Iterable<T>{
 
     public int size(){
         return size;
-    }
-
-    public boolean isEmpty(){
-        return size == 0;
     }
 
     public void printDeque(){
