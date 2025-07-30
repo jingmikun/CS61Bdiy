@@ -14,13 +14,10 @@ public class TestArrayDequeEC {
         StudentArrayDeque<Integer> A = new StudentArrayDeque<>();
 
         int N = 5000;
-        String[] actionDict = new String[3];
+        String operation = "";
 
         for (int i = 0; i < N; i += 1) {
-            int operationNumber = StdRandom.uniform(0, 5);
-
-            actionDict[0] = actionDict[1];
-            actionDict[1] = actionDict[2];
+            int operationNumber = StdRandom.uniform(0, 4);
 
             if (operationNumber == 0) {
                 // addLast
@@ -28,29 +25,29 @@ public class TestArrayDequeEC {
                 L.addLast(randVal);
                 A.addLast(randVal);
 
-                actionDict[2] = "addLast(" + randVal + ")";
+                operation = operation + "addLast(" + randVal + ")"+ "\n";
             } else if (operationNumber == 1) {
                 // addFirst
                 int randVal = StdRandom.uniform(0, 100);
                 L.addFirst(randVal);
                 A.addFirst(randVal);
 
-                actionDict[2] = "addFirst(" + randVal + ")";
+                operation = operation + "addFirst(" + randVal + ")"+ "\n";
             } else if (operationNumber == 2) {
-                // size
+                // removeFirst
 
-                actionDict[2] = "removeFirst()";
+                operation = operation + "removeFirst()"+ "\n";
 
                 if (!L.isEmpty() && !A.isEmpty()) {
-                    assertEquals("\n"+actionDict[0]+"\n"+actionDict[1]+"\n"+actionDict[2],L.removeFirst(), A.removeFirst());
+                    assertEquals(operation,L.removeFirst(), A.removeFirst());
                 }
             } else if (operationNumber == 3) {
                 // removeLast
 
-                actionDict[2] = "removeLast()";
+                operation = operation + "removeLast()"+ "\n";
 
                 if (!L.isEmpty() && !A.isEmpty()) {
-                    assertEquals("\n"+actionDict[0]+"\n"+actionDict[1]+"\n"+actionDict[2],L.removeLast(), A.removeLast());
+                    assertEquals(operation,L.removeLast(), A.removeLast());
                 }
             }
         }
