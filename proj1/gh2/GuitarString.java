@@ -21,7 +21,7 @@ public class GuitarString {
         int capacity = (int) Math.round(SR / frequency);
         buffer = new LinkedListDeque<>();
 
-        for (int i = 0; i < capacity ; i++) {
+        for (int i = 0; i < capacity; i++) {
             buffer.addLast(0.0);
         }
     }
@@ -51,7 +51,7 @@ public class GuitarString {
         double sound1 = buffer.removeFirst();
         double sound2 = buffer.get(0);
 
-        double newSound = (sound1+sound2) / 2 * DECAY;
+        double newSound = (sound1 + sound2) / 2 * DECAY;
 
         buffer.addLast(newSound);
     }

@@ -6,12 +6,12 @@ public class LinkedListDeque<T> implements Iterable<T>,Deque<T> {
     private IntNode sentinel;
     private int size;
 
-    public class IntNode {
-        public T first;
-        public IntNode next;
-        public IntNode prev;
+    private class IntNode {
+        private T first;
+        private IntNode next;
+        private IntNode prev;
 
-        private IntNode(T item, IntNode n,IntNode p) {
+        private IntNode(T item, IntNode n, IntNode p) {
             first = item;
             next = n;
             prev = p;
@@ -19,7 +19,7 @@ public class LinkedListDeque<T> implements Iterable<T>,Deque<T> {
     }
 
     public LinkedListDeque() {
-        sentinel = new IntNode(null,null,null);
+        sentinel = new IntNode(null, null, null);
         sentinel.next = sentinel;
         sentinel.prev = sentinel;
         size = 0;
@@ -27,22 +27,26 @@ public class LinkedListDeque<T> implements Iterable<T>,Deque<T> {
 
     public void addFirst(T item) {
         IntNode remain = sentinel.next;
-        IntNode newNode = new IntNode(item,remain,sentinel);
+        IntNode newNode = new IntNode(item, remain, sentinel);
 
         size++;
         sentinel.next = newNode;
         remain.prev = newNode;
-        if (size == 1){sentinel.prev = newNode;}
+        if (size == 1) {
+            sentinel.prev = newNode;
+        }
     }
 
     public void addLast(T item) {
         IntNode remain = sentinel.prev;
-        IntNode newNode = new IntNode(item,sentinel,remain);
+        IntNode newNode = new IntNode(item, sentinel, remain);
 
         size++;
         sentinel.prev = newNode;
         remain.next = newNode;
-        if (size == 1) { sentinel.next = newNode; }
+        if (size == 1) {
+            sentinel.next = newNode;
+        }
     }
 
     public int size() {
@@ -100,15 +104,14 @@ public class LinkedListDeque<T> implements Iterable<T>,Deque<T> {
         if (index > size - 1) {
             return null;
         }
-        return getRecursive(index,sentinel.next);
+        return getRecursive(index, sentinel.next);
     }
 
     private T getRecursive(int index,IntNode start){
         if (index == 0) {
             return start.first;
-        }
-        else{
-            return getRecursive(index - 1,start.next);
+        } else {
+            return getRecursive(index - 1, start.next);
         }
     }
 

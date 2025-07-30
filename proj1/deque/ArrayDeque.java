@@ -1,4 +1,4 @@
-package deque;
+ package deque;
 
 import java.util.Iterator;
 
@@ -21,7 +21,9 @@ public class ArrayDeque<T> implements Iterable<T>, Deque<T> {
         nextFirst = precede(nextFirst);
         size++;
 
-        if (size == item.length) { resize(size * 2) ; }
+        if (size == item.length) {
+             resize(size * 2); 
+            }
     }
 
     public void addLast(T x) {
@@ -29,7 +31,9 @@ public class ArrayDeque<T> implements Iterable<T>, Deque<T> {
         nextLast = goBackward(nextLast);
         size++;
 
-        if (size == item.length) { resize(size * 2); }
+        if (size == item.length) {
+             resize(size * 2); 
+            }
     }
 
     public T removeFirst() {
@@ -114,7 +118,7 @@ public class ArrayDeque<T> implements Iterable<T>, Deque<T> {
             return null;
         }
         int start = goBackward(nextFirst);
-        return item[(start+index) % (item.length)];
+        return item[(start + index) % (item.length)];
 
     }
 
