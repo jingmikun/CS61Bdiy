@@ -9,8 +9,8 @@ public class GuitarHero {
         /* create two guitar strings, for concert A and C */
         GuitarString[] allStrings = new GuitarString[37];
 
-        for (int i = 0;i<37;i++){
-            double freq = 440*Math.pow(2,(i-24.0)/12.0);
+        for (int i = 0;i < 37;i++) {
+            double freq = 440 * Math.pow(2,(i - 24.0) / 12.0);
             allStrings[i] = new GuitarString(freq);
         }
 
@@ -19,12 +19,12 @@ public class GuitarHero {
             /* check if the user has typed a key; if so, process it */
             if (StdDraw.hasNextKeyTyped()) {
                 char key = StdDraw.nextKeyTyped();
-                if (keyboard.indexOf(key) != -1){allStrings[keyboard.indexOf(key)].pluck();}
+                if (keyboard.indexOf(key) != -1) { allStrings[keyboard.indexOf(key)].pluck(); }
             }
 
             /* compute the superposition of samples */
             double sample = 0.0;
-            for (int i = 0;i<37;i++){
+            for (int i = 0;i < 37;i++) {
                 sample += allStrings[i].sample();
             }
 
@@ -32,7 +32,7 @@ public class GuitarHero {
             StdAudio.play(sample);
 
             /* advance the simulation of each guitar string by one step */
-            for (int i = 0;i<37;i++){
+            for (int i = 0;i < 37;i++) {
                 allStrings[i].tic();
             }
         }
