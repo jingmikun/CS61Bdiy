@@ -5,10 +5,9 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-public class BSTMap<K extends Comparable, V> implements Map61B<K, V>
-, Iterable<K> {
+public class BSTMap<K extends Comparable<K>, V> implements Map61B<K, V> {
 
-    public BTSNode root;
+    private BTSNode root;
 
     @Override
     public void clear() {
@@ -103,6 +102,12 @@ public class BSTMap<K extends Comparable, V> implements Map61B<K, V>
         V value = deleting.value;
         removeNode(deleting); // 调用一个辅助函数来处理具体的删除逻辑
         return value;
+    }
+
+    public void printInOrder() {
+        for (K key : this) {
+            System.out.println(key);
+        }
     }
 
     /**
@@ -313,7 +318,7 @@ public class BSTMap<K extends Comparable, V> implements Map61B<K, V>
         return Predecessor;
     }
 
-    public class BTSNode{
+    private class BTSNode{
         public K key;
         public V value;
         public BTSNode left;
