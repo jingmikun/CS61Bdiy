@@ -1,11 +1,9 @@
 package bstmap;
 
-import com.puppycrawl.tools.checkstyle.grammar.javadoc.JavadocParser;
 
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.TreeSet;
 
 public class BSTMap<K extends Comparable, V> implements Map61B<K, V>
 , Iterable<K> {
