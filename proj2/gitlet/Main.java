@@ -15,13 +15,16 @@ public class Main {
      */
     public static void main(String[] args) {
         if (args.length == 0) {
-            throw new GitletException("Please enter a command.");
+            System.out.println("Please enter a command.");
+            return;
         }
         String firstArg = args[0];
-        switch(firstArg) {
+        try {
+            switch(firstArg) {
             case "init":
                 if (Repository.GITLET_DIR.exists()) {
-                    throw new GitletException("A Gitlet version-control system already exists in the current directory.");
+                    System.out.println("A Gitlet version-control system already exists in the current directory.");
+                    return;
                 }
                 Repository.init();
                 break;
@@ -44,6 +47,10 @@ public class Main {
                     throw new GitletException("Please enter a commit message.");
                 } else if (args.length != 2) {
                     throw new GitletException("Incorrect operands.");
+                }
+                if (args[1].isEmpty()) {
+                    System.out.println("Please enter a commit message.");
+                    return;
                 }
                 Repository.commit(args[1], null);
                 break;
@@ -195,7 +202,13 @@ public class Main {
                 Repository.pull(args[1] ,args[2]);
                 break;
             default:
-                throw new GitletException("No command with that name exists.");
+                System.out.println("No command with that name exists.");
+                return;
+            }
+        } catch (GitletException e) {
+            if (e.getMessage() != null) {
+                System.out.println(e.getMessage());
+            }
         }
     }
 }

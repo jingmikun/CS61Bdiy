@@ -53,16 +53,16 @@ public class Repository {
         try {
             head.createNewFile();
         } catch (IOException e) {
-            System.err.println("创建文件时发生IO错误: " + e.getMessage());
+            System.err.println("???????????O???: " + e.getMessage());
         }
 
         Commit initCommit = new Commit("initial commit", null, null);
-        initCommit.createCommitFile();
-        Head.writeInHead(initCommit);
+        String initId = initCommit.createCommitFile();
+        Head.writeHeadId(initId);
 
         Branch master = new Branch("master");
         master.createBranchFile();
-        Branch.addCommit("master", sha1(serialize(initCommit)));
+        Branch.addCommit("master", initId);
         // Explicitly set current branch name to master at init
         Branch.addCurrBranchName("master");
     }
@@ -91,7 +91,8 @@ public class Repository {
 
     public static void add(File newFile) {
         if (!newFile.exists()) {
-            throw new GitletException("File does not exist.");
+            System.out.println("File does not exist.");
+            return;
         }
 
         Blob newblob = new Blob(newFile);
@@ -118,7 +119,7 @@ public class Repository {
             try {
                 join(addition, newId).createNewFile();
             } catch (IOException e) {
-                System.err.println("创建文件时发生IO错误: " + e.getMessage());
+                System.err.println("???????????O???: " + e.getMessage());
             }
             // Update name -> id index for staged addition (constant time)
             writeContents(join(additionByName, newblob.getFilename()), newId);
@@ -132,7 +133,8 @@ public class Repository {
         boolean noAdds = (allStageBlobId == null || allStageBlobId.isEmpty());
         boolean noRemoves = (allRemovalBlobId == null || allRemovalBlobId.isEmpty());
         if (noAdds && noRemoves) {
-            throw new GitletException("No changes added to the commit.");
+            System.out.println("No changes added to the commit.");
+            return;
         }
 
         // Use the actual commit ID from HEAD file, not a recalculated one
@@ -170,12 +172,12 @@ public class Repository {
 
 
          //save the commit and clear the staging area
-        newCommit.createCommitFile();
+        String newCommitId = newCommit.createCommitFile();
         clearStaging();
 
         //add thisCommit into commit tree (curr branch) and change the head pointer
-        Branch.addCommit(Branch.readCurrBranchName(), sha1(serialize(newCommit)));
-        Head.writeHeadId(sha1(serialize(newCommit)));
+        Branch.addCommit(Branch.readCurrBranchName(), newCommitId);
+        Head.writeHeadId(newCommitId);
     }
 
     /** The log function reads from the current commit and return a log
@@ -183,15 +185,16 @@ public class Repository {
      */
 
     public static void log() {
-        Commit p = Head.returnCurrCommit();
-
+        // Start from the current HEAD commit id so we always print the true ids
+        String commitId = readContentsAsString(head);
         // Use a stable, locale-fixed date format with explicit timezone.
         SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy Z", Locale.US);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-        while (p != null) {
+        while (commitId != null) {
+            Commit p = readObject(join(commit, commitId), Commit.class);
             System.out.println("===");
-            System.out.println("commit " + sha1(serialize(p)));
+            System.out.println("commit " + commitId);
             // Print Merge line if this is a merge commit (has two parents)
             if (p.getParent().size() >= 2 && p.getParent().get(0) != null
                     && p.getParent().get(1) != null) {
@@ -203,15 +206,15 @@ public class Repository {
             System.out.println("Date: " + sdf.format(p.getTimestamp()));
             System.out.println(p.getMessage());
             System.out.println();
-            // Check if parent exists and is not null before reading
+            // Move to first parent; stop when there is no parent.
             if (p.getParent().isEmpty() || p.getParent().get(0) == null) {
                 break;
             }
-            p = Commit.readCommit(p.getParent().get(0));
+            commitId = p.getParent().get(0);
         }
     }
 
-    /** The case I checkout：checkout with merely the file name,
+    /** The case I checkout??heckout with merely the file name,
      * Takes the version of the file as it exists in the head commit
      * and puts it in the working directory, overwriting the version
      * of the file that's already there if there is one.
@@ -232,7 +235,7 @@ public class Repository {
         }
     }
 
-    /** The case II checkout：checkout with merely the file name,
+    /** The case II checkout??heckout with merely the file name,
      * Takes the version of the file as it exists in the head commit
      * and puts it in the working directory, overwriting the version
      * of the file that's already there if there is one.
@@ -337,6 +340,9 @@ public class Repository {
         }
         // Full id case
         if (shortId.length() == Utils.UID_LENGTH) {
+            if (!join(commit, shortId).exists()) {
+                throw new GitletException("No commit with that id exists.");
+            }
             return shortId;
         }
         List<String> ids = plainFilenamesIn(commit);
@@ -399,7 +405,7 @@ public class Repository {
             try {
                 join(removal, thisBlobId).createNewFile();
             } catch (IOException e) {
-                System.err.println("创建文件时发生IO错误: " + e.getMessage());
+                System.err.println("???????????O???: " + e.getMessage());
             }
 
             restrictedDelete(join(CWD, filename));
@@ -407,7 +413,8 @@ public class Repository {
         }
 
         if (!flag1 && !flag2) {
-            throw new GitletException("No reason to remove the file.");
+            System.out.println("No reason to remove the file.");
+            return;
         }
     }
 
@@ -419,11 +426,25 @@ public class Repository {
         List<String> allCommit = plainFilenamesIn(commit);
 
         if (allCommit != null) {
-            for (String c : allCommit) {
-                Commit p = readObject(join(commit, c), Commit.class);
-                SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy Z", Locale.US);
-                sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            Map<String, Commit> commitCache = new HashMap<>();
+            for (String id : allCommit) {
+                commitCache.put(id, readObject(join(commit, id), Commit.class));
+            }
+            allCommit.sort((id1, id2) -> {
+                Commit c1 = commitCache.get(id1);
+                Commit c2 = commitCache.get(id2);
+                int cmp = c2.getTimestamp().compareTo(c1.getTimestamp());
+                if (cmp != 0) {
+                    return cmp;
+                }
+                return id2.compareTo(id1);
+            });
 
+            SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy Z", Locale.US);
+            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+            for (String c : allCommit) {
+                Commit p = commitCache.get(c);
                 System.out.println("===");
                 System.out.println("commit " + c);
                 // Print Merge line if this is a merge commit (has two parents)
@@ -436,6 +457,7 @@ public class Repository {
                 }
                 System.out.println("Date: " + sdf.format(p.getTimestamp()));
                 System.out.println(p.getMessage());
+                System.out.println();
             }
         }
     }
@@ -448,22 +470,39 @@ public class Repository {
      */
 
     public static void find(String message) {
-        List<String> allCommit = plainFilenamesIn(commit);
-        boolean flag = false;
+        List<String> ids = plainFilenamesIn(commit);
+        if (ids == null || ids.isEmpty()) {
+            System.out.println("Found no commit with that message.");
+            return;
+        }
 
-        if (allCommit != null) {
-            for (String c : allCommit) {
-                Commit p = readObject(join(commit, c), Commit.class);
+        Map<String, Commit> cache = new HashMap<>();
+        List<String> matches = new ArrayList<>();
 
-                if (Objects.equals(p.getMessage(), message)) {
-                    System.out.println(c);
-                    flag = true;
-                }
+        for (String id : ids) {
+            Commit c = cache.computeIfAbsent(id, k -> readObject(join(commit, k), Commit.class));
+            if (Objects.equals(c.getMessage(), message)) {
+                matches.add(id);
             }
         }
 
-        if (!flag) {
-            throw new GitletException("Found no commit with that message.");
+        if (matches.isEmpty()) {
+            System.out.println("Found no commit with that message.");
+            return;
+        }
+
+        matches.sort((a, b) -> {
+            Commit ca = cache.get(a);
+            Commit cb = cache.get(b);
+            int cmp = cb.getTimestamp().compareTo(ca.getTimestamp());
+            if (cmp != 0) {
+                return cmp;
+            }
+            return b.compareTo(a);
+        });
+
+        for (String id : matches) {
+            System.out.println(id);
         }
     }
 
@@ -516,9 +555,6 @@ public class Repository {
 
         System.out.println("=== Removed Files ===");
         Collections.sort(allRemovalFileName);
-        if (allRemovalFileName.isEmpty()) {
-            System.out.println();
-        }
         for (String n : allRemovalFileName) {
             System.out.println(n);
         }
@@ -591,18 +627,17 @@ public class Repository {
 
         Collections.sort(modifiedNotStaged);
         System.out.println("=== Modifications Not Staged For Commit ===");
-        if (modifiedNotStaged.isEmpty()) {
-            System.out.println();
-        }
         for (String s : modifiedNotStaged) {
             System.out.println(s);
         }
-        System.out.println();
+        if (modifiedNotStaged.isEmpty()) {
+            System.out.println();
+        }
 
         //Print the untracked files;
         //The files in the CWD that aren't tracked by current commit nor staged
         // Files present in the working directory but neither staged for addition nor tracked.
-        // This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.
+        // This includes files that have been staged for removal, but then re-created without Gitlet?? knowledge.
         // Ignore any subdirectories that may have been introduced, since Gitlet does not deal with them.
 
         List<String> untracked = new ArrayList<>();
@@ -623,9 +658,6 @@ public class Repository {
 
         Collections.sort(untracked);
         System.out.println("=== Untracked Files ===");
-        if (untracked.isEmpty()) {
-            System.out.println();
-        }
         for (String s : untracked) {
             System.out.println(s);
         }
@@ -645,7 +677,15 @@ public class Repository {
 
         Branch b = new Branch(branchName);
         b.createBranchFile();
-        Branch.addCommit(branchName, sha1(serialize(Head.returnCurrCommit())));
+        Branch.addCommit(branchName, Head.currentHeadId());
+    }
+
+    /** Normalize line endings so CRLF/LF comparisons are consistent across OSes. */
+    private static String normalizeLineEndings(String content) {
+        if (content == null) {
+            return null;
+        }
+        return content.replace("\r\n", "\n");
     }
 
     /** Removes a branch pointer without changing any commits
@@ -672,14 +712,6 @@ public class Repository {
      */
 
     public static void reset(String commitId) {
-        // Check for uncommitted changes
-        List<String> adds = plainFilenamesIn(addition);
-        List<String> rms = plainFilenamesIn(removal);
-        if ((adds != null && !adds.isEmpty())
-                || (rms != null && !rms.isEmpty())) {
-            throw new GitletException("You have uncommitted changes.");
-        }
-
         String resolved = resolveCommitId(commitId);
         Commit target = Commit.readCommit(resolved);
         Commit curr = Head.returnCurrCommit();
@@ -731,7 +763,8 @@ public class Repository {
         }
 
         if (Branch.readCurrBranchName().equals(branchName)) {
-            throw new GitletException("Cannot merge a branch with itself.");
+            System.out.println("Cannot merge a branch with itself.");
+            return;
         }
 
         //Find the split point
@@ -782,6 +815,7 @@ public class Repository {
         // Check untracked files that would be overwritten
         // First, collect all files that exist in CWD
         List<String> filesInCWD = plainFilenamesIn(CWD);
+        List<String> stagedAdditionNames = plainFilenamesIn(additionByName);
         if (filesInCWD != null) {
             for (String n : filesInCWD) {
                 // Skip if file is deleted in both branches (will be
@@ -794,15 +828,26 @@ public class Repository {
                     continue; // Skip this file, it will be handled later
                 }
                 // Check if file would be overwritten by given branch
+                boolean stagedForAddition = stagedAdditionNames != null
+                        && stagedAdditionNames.contains(n);
                 if (!currHeadCommit.getBlobs().containsKey(n)
                         && givenHeadCommit.getBlobs().containsKey(n)) {
-                    throw new GitletException("There is an untracked file in "
-                            + "the way; delete it, or add and commit it first.");
-                }
-                // Check if file would be overwritten by current branch
-                // checkout
-                if (!givenHeadCommit.getBlobs().containsKey(n)
-                        && currHeadCommit.getBlobs().containsKey(n)) {
+                    if (stagedForAddition) {
+                        continue; // considered tracked for purposes of conflict check
+                    }
+                    File cwdFile = join(CWD, n);
+                    if (!cwdFile.exists()) {
+                        continue; // nothing to overwrite
+                    }
+
+                    String givenBlobId = givenHeadCommit.getBlobs().get(n);
+                    String givenContent = normalizeLineEndings(
+                            Blob.readBlobContent(givenBlobId));
+                    String cwdContent = normalizeLineEndings(
+                            readContentsAsString(cwdFile));
+                    if (Objects.equals(cwdContent, givenContent)) {
+                        continue; // safe: file matches given branch version
+                    }
                     throw new GitletException("There is an untracked file in "
                             + "the way; delete it, or add and commit it first.");
                 }
@@ -1063,11 +1108,11 @@ public class Repository {
                     + Branch.readCurrBranchName() + ".",
                     currentCommitId,
                     Branch.readBranch(branchName).getHeadCommit());
-            newCommit.createCommitFile();
+            String mergeCommitId = newCommit.createCommitFile();
             clearStaging();
             Branch.addCommit(Branch.readCurrBranchName(),
-                    sha1(serialize(newCommit)));
-            Head.writeHeadId(sha1(serialize(newCommit)));
+                    mergeCommitId);
+            Head.writeHeadId(mergeCommitId);
         } else {
             // Use the actual current head commit ID, not the calculated one
             // Temporarily set HEAD to use the correct commit ID for
@@ -1164,7 +1209,8 @@ public class Repository {
 
         if (allRemote != null && !allRemote.isEmpty()) {
             if (allRemote.contains(remoteName)) {
-                throw new GitletException("A remote with that name already exists.");
+                System.out.println("A remote with that name already exists.");
+                return;
             }
         }
 
@@ -1173,7 +1219,7 @@ public class Repository {
         try {
             newRemote.createNewFile();
         } catch (IOException e) {
-            System.err.println("创建文件时发生IO错误: " + e.getMessage());
+            System.err.println("???????????O???: " + e.getMessage());
         }
 
         writeContents(newRemote, remotePath);
@@ -1182,18 +1228,17 @@ public class Repository {
     public static void rmRemote(String remoteName) {
         List<String> allRemote = plainFilenamesIn(remote);
 
-        if (allRemote != null && !allRemote.isEmpty()) {
-            if (!allRemote.contains(remoteName)) {
-                throw new GitletException("A remote with that name does not exist.");
-            }
+        if (allRemote == null || !allRemote.contains(remoteName)) {
+            System.out.println("A remote with that name does not exist.");
+            return;
         }
 
         File remoteTobeDeleted = join(remote, remoteName);
         remoteTobeDeleted.delete();
     }
 
-    /** Attempts to append the current branch’s commits to the end of the given branch
-     * at the given remote.This command only works if the remote branch’s head is in the history
+    /** Attempts to append the current branch?? commits to the end of the given branch
+     * at the given remote.This command only works if the remote branch?? head is in the history
      * of the current local head. which means that the local branch contains some commits in the future
      * of the remote branch. In this case, append the future commits to the remote branch.
      * Then, the remote should reset to the front of the appended commits
@@ -1216,7 +1261,7 @@ public class Repository {
             try {
                 rb.createNewFile();
             } catch (IOException e) {
-                System.err.println("创建文件时发生IO错误: " + e.getMessage());
+                System.err.println("???????????O???: " + e.getMessage());
             }
             Branch remBranch = new Branch(remoteBranch);
 
@@ -1349,7 +1394,7 @@ public class Repository {
         try {
             join(remoteCommit, commitIdA).createNewFile();
         } catch (IOException e) {
-            System.err.println("创建文件时发生IO错误: " + e.getMessage());
+            System.err.println("???????????O???: " + e.getMessage());
         }
         writeContents(join(remoteCommit, commitIdA), readContents(c));
 
@@ -1360,7 +1405,7 @@ public class Repository {
             try {
                 join(remoteBlobs, k).createNewFile();
             } catch (IOException e) {
-                System.err.println("创建文件时发生IO错误: " + e.getMessage());
+                System.err.println("???????????O???: " + e.getMessage());
             }
             writeObject(join(remoteBlobs, k), readObject(b, Blob.class));
         }

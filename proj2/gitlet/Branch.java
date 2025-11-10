@@ -17,6 +17,10 @@ public class Branch implements Serializable {
 
     public void createBranchFile() {
         File newBranch = join(Repository.branch, this.name);
+        File parentDir = newBranch.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
+        }
         try {
             newBranch.createNewFile();
         } catch (IOException e) {
@@ -85,3 +89,4 @@ public class Branch implements Serializable {
     }
 
 }
+

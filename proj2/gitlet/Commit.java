@@ -47,7 +47,7 @@ public class Commit implements Serializable {
         }
     }
 
-    public void createCommitFile() {
+    public String createCommitFile() {
         String commitId = sha1(serialize(this));
         File commitPath = join(Repository.commit, commitId);
 
@@ -58,6 +58,7 @@ public class Commit implements Serializable {
         }
 
         writeObject(commitPath, this);
+        return commitId;
     }
 
     public HashMap<String, String> getBlobs() {

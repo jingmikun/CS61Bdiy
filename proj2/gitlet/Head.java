@@ -9,13 +9,13 @@ import static gitlet.Utils.*;
 public class Head {
     private static File HEAD_PATH = Repository.head;
 
-    public static void writeInHead(Commit commit) {
-        writeContents(HEAD_PATH, sha1(serialize(commit)));
-    }
-
     // Safer variant: write a known commit id directly.
     public static void writeHeadId(String commitId) {
         writeContents(HEAD_PATH, commitId);
+    }
+
+    public static String currentHeadId() {
+        return readContentsAsString(HEAD_PATH);
     }
 
     public static Commit returnCurrCommit() {

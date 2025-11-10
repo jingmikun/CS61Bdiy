@@ -1,0 +1,35 @@
+import subprocess, os, shutil, re, sys
+root = os.path.abspath(os.path.dirname(__file__))
+repo = os.path.join(root, 'tmp_test26')
+if os.path.exists(repo): shutil.rmtree(repo)
+os.makedirs(repo)
+shutil.copy(os.path.join(root,'testing/src/wug.txt'), os.path.join(repo,'wug.txt'))
+shutil.copy(os.path.join(root,'testing/src/notwug.txt'), os.path.join(repo,'notwug.txt'))
+cmd = ['java','-ea','-cp',root,'gitlet.Main']
+def run(*args):
+    res = subprocess.run(cmd+list(args), cwd=repo, capture_output=True, text=True)
+    if res.returncode != 0:
+        print('Command', args, 'failed')
+        print(res.stdout)
+        print(res.stderr)
+        sys.exit(1)
+    return res.stdout
+run('init')
+shutil.copy(os.path.join(repo,'wug.txt'), os.path.join(repo,'f.txt'))
+shutil.copy(os.path.join(repo,'notwug.txt'), os.path.join(repo,'g.txt'))
+run('add','g.txt')
+run('add','f.txt')
+run('commit','Two files')
+run('rm','f.txt')
+run('commit','Remove one file')
+log_out = run('log')
+print('LOG OUTPUT:\n'+log_out)
+ids = re.findall(r'commit ([0-9a-f]{40})', log_out)
+initial, second, third = ids[2], ids[1], ids[0]
+print('UID1', initial)
+print('UID2', second)
+print('UID3', third)
+run('reset', second)
+find_out = run('find','Remove one file')
+print('FIND OUTPUT:\n'+find_out)
+print('Matches expectation?', find_out.strip()==third)
