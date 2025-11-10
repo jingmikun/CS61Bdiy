@@ -121,7 +121,7 @@ public class Repository {
                 System.err.println("创建文件时发生IO错误: " + e.getMessage());
             }
             // Update name -> id index for staged addition (constant time)
-            writeContents(join(additionByName, newblob.filename), newId);
+            writeContents(join(additionByName, newblob.getFilename()), newId);
         }
     }
 
