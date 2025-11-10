@@ -3,22 +3,20 @@ package gitlet;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.LinkedList;
-import java.util.List;
 
 import static gitlet.Utils.*;
 
 public class Branch implements Serializable {
 
     public String name;
-    private List<String> commitList;
+    private String headCommit;
 
     public Branch(String name) {
         this.name = name;
-        commitList = new LinkedList<>();
-        addCurrBranchName(name);
+    }
 
-        File newBranch = join(Repository.branch, name);
+    public void createBranchFile() {
+        File newBranch = join(Repository.branch, this.name);
         try {
             newBranch.createNewFile();
         } catch (IOException e) {
@@ -33,7 +31,7 @@ public class Branch implements Serializable {
 
         Branch b = readObject(thisBranch, Branch.class);
 
-        b.commitList.add(commitID);
+        b.headCommit = commitID;
         writeObject(thisBranch, b);
     }
 
@@ -56,4 +54,30 @@ public class Branch implements Serializable {
 
         return readContentsAsString(currBranchName);
     }
+
+    public String getHeadCommit() {
+        return headCommit;
+    }
+
+    public void changeHeadCommit(String ID) {
+        File thisBranch = join(Repository.branch, this.name);
+
+        this.headCommit = ID;
+        writeObject(thisBranch, this);
+    }
+
+    public void changeHeadCommitRemote(String ID) {
+        this.headCommit = ID;
+    }
+
+    public static Branch readBranch(String name) {
+        File thisBranch = join(Repository.branch, name);
+
+        return readObject(thisBranch, Branch.class);
+    }
+
+    public static String readCurrHeadCommit() {
+        return readBranch(Branch.readCurrBranchName()).getHeadCommit();
+    }
+
 }

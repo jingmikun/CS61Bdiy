@@ -1,0 +1,30 @@
+# Test checkout with commit id and filename
+I definitions.inc
+> init
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
+> commit "first commit"
+<<<
++ wug.txt notwug.txt
+> add wug.txt
+<<<
+> commit "second commit"
+<<<
+= wug.txt notwug.txt
+> log
+===
+${COMMIT_HEAD}
+second commit
+===
+${COMMIT_HEAD}
+first commit
+===
+${COMMIT_HEAD}
+initial commit
+<<<*
+> checkout ${2} -- wug.txt
+<<<
+= wug.txt wug.txt
+

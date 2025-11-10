@@ -1,0 +1,22 @@
+# Test normal merge: given branch modifies, current branch doesn't (no conflict)
+> init
+<<<
++ file.txt original_simple.txt
+> add file.txt
+<<<
+> commit "initial commit"
+<<<
+> branch other
+<<<
+> checkout other
+<<<
++ file.txt file_modified_other.txt
+> add file.txt
+<<<
+> commit "modified in other"
+<<<
+> checkout master
+<<<
+> merge other
+<<<
+= file.txt no_conflict_result.txt

@@ -1,0 +1,25 @@
+# Test merge: file deleted in both branches (no conflict, should stay deleted)
+> init
+<<<
++ file.txt file_content.txt
+> add file.txt
+<<<
+> commit "initial commit"
+<<<
+> branch other
+<<<
+> rm file.txt
+<<<
+> commit "deleted in master"
+<<<
+> checkout other
+<<<
+> rm file.txt
+<<<
+> commit "deleted in other"
+<<<
+> checkout master
+<<<
+> merge other
+<<<
+* file.txt

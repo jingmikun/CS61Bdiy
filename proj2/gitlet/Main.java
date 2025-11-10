@@ -45,7 +45,7 @@ public class Main {
                 } else if (args.length != 2) {
                     throw new GitletException("Incorrect operands.");
                 }
-                Repository.commit(args[1]);
+                Repository.commit(args[1], null);
                 break;
             case "log":
                 if (!Repository.GITLET_DIR.exists()) {
@@ -69,9 +69,130 @@ public class Main {
                 //Case 2:
                 else if (args.length == 4 && Objects.equals(args[2], "--")) {
                     Repository.checkout(args[1], args[3]);
-                } else {
+                }
+
+                //Case 3:
+                else if (args.length == 2) {
+                    Repository.checkoutWithBranch(args[1]);
+                }
+
+                else {
                     throw new GitletException("Incorrect operands.");
                 }
+
+
+                break;
+            case "rm":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+
+                if (args.length != 2) {
+                    throw new GitletException("Incorrect operands.");
+                }
+
+                Repository.rm(args[1]);
+                break;
+            case "global-log":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+
+                if (args.length != 1) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                Repository.globalLog();
+                break;
+            case "find":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+                if (args.length != 2) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                Repository.find(args[1]);
+                break;
+            case "status":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+                if (args.length != 1) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                Repository.status();
+                break;
+            case "branch":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+                if (args.length != 2) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                Repository.branch(args[1]);
+                break;
+            case "rm-branch":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+                if (args.length != 2) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                Repository.rmBranch(args[1]);
+                break;
+            case "reset":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+                if (args.length != 2) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                Repository.reset(args[1]);
+                break;
+            case "merge":
+                if (!Repository.GITLET_DIR.exists()) {
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+                if (args.length != 2) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                Repository.merge(args[1]);
+                break;
+            case "add-remote":
+                if (args.length != 3) {
+                    throw new GitletException("Incorrect operands.");
+                }
+                //Check whether it's a gitlet
+                String realPath = args[2].replace("/", File.separator);
+
+                Repository.addRemote(args[1], realPath);
+                break;
+            case "rm-remote":
+                if (args.length != 2) {
+                    throw new GitletException("Incorrect operands.");
+                }
+
+                Repository.rmRemote(args[1]);
+                break;
+            case "push":
+                if (args.length != 3) {
+                    throw new GitletException("Incorrect operands.");
+                }
+
+                Repository.push(args[1] ,args[2]);
+                break;
+            case "fetch":
+                if (args.length != 3) {
+                    throw new GitletException("Incorrect operands.");
+                }
+
+                Repository.fetch(args[1] ,args[2]);
+                break;
+            case "pull":
+                if (args.length != 3) {
+                    throw new GitletException("Incorrect operands.");
+                }
+
+                Repository.pull(args[1] ,args[2]);
                 break;
             default:
                 throw new GitletException("No command with that name exists.");

@@ -1,0 +1,27 @@
+# Test merge conflict: new file in both branches with different content
+> init
+<<<
++ file1.txt file1_content1.txt
+> add file1.txt
+<<<
+> commit "initial commit"
+<<<
+> branch other
+<<<
++ file2.txt conflict_new_file_master.txt
+> add file2.txt
+<<<
+> commit "add file2 in master"
+<<<
+> checkout other
+<<<
++ file2.txt conflict_new_file_other.txt
+> add file2.txt
+<<<
+> commit "add file2 in other"
+<<<
+> checkout master
+<<<
+> merge other
+<<<
+= file2.txt conflict_result_new_file.txt

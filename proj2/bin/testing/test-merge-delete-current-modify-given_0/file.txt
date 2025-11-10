@@ -1,0 +1,4 @@
+<<<<<<< HEAD
+=======
+modified content
+>>>>>>>

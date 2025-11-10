@@ -1,0 +1,23 @@
+# Simple merge test - with fast-forward
+> init
+<<<
++ file.txt file_original.txt
+> add file.txt
+<<<
+> commit "initial commit"
+<<<
+> branch other
+<<<
+> checkout other
+<<<
++ file.txt file_changed.txt
+> add file.txt
+<<<
+> commit "modified in other"
+<<<
+> checkout master
+<<<
+> merge other
+Current branch fast-forwarded.
+<<<
+= file.txt file_changed.txt

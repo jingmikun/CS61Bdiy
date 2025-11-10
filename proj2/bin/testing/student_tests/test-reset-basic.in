@@ -1,0 +1,38 @@
+# Test reset command
+I definitions.inc
+> init
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
+> commit "first commit"
+<<<
++ notwug.txt notwug.txt
+> add notwug.txt
+<<<
+> commit "second commit"
+<<<
+> log
+===
+${COMMIT_HEAD}
+second commit
+===
+${COMMIT_HEAD}
+first commit
+===
+${COMMIT_HEAD}
+initial commit
+<<<*
+> reset ${2}
+<<<
+> log
+===
+${COMMIT_HEAD}
+first commit
+===
+${COMMIT_HEAD}
+initial commit
+<<<*
+= wug.txt wug.txt
+* notwug.txt
+

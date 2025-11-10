@@ -1,0 +1,26 @@
+# Test merge conflict: file deleted in current branch, modified in given branch
+> init
+<<<
++ file.txt file_original_content.txt
+> add file.txt
+<<<
+> commit "initial commit"
+<<<
+> branch other
+<<<
+> rm file.txt
+<<<
+> commit "deleted in master"
+<<<
+> checkout other
+<<<
++ file.txt file_modified_content.txt
+> add file.txt
+<<<
+> commit "modified in other"
+<<<
+> checkout master
+<<<
+> merge other
+<<<
+= file.txt conflict_current_delete.txt

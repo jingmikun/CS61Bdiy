@@ -1,0 +1,26 @@
+# Test merge when given branch is ancestor
+I definitions.inc
+> init
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
+> commit "first commit"
+<<<
+> branch branch1
+<<<
+> checkout branch1
+<<<
++ notwug.txt notwug.txt
+> add notwug.txt
+<<<
+> commit "second commit on branch1"
+<<<
+> checkout master
+<<<
+> merge branch1
+<<<
+> merge branch1
+Given branch is an ancestor of the current branch.
+<<<*
+

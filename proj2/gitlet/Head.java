@@ -13,6 +13,11 @@ public class Head {
         writeContents(HEAD_PATH, sha1(serialize(commit)));
     }
 
+    // Safer variant: write a known commit id directly.
+    public static void writeHeadId(String commitId) {
+        writeContents(HEAD_PATH, commitId);
+    }
+
     public static Commit returnCurrCommit() {
         File current = join(Repository.commit, readContentsAsString(HEAD_PATH));
 

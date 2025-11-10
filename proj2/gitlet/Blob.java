@@ -1,11 +1,9 @@
 package gitlet;
 
-import org.knowm.xchart.style.lines.SeriesLines;
-
 import java.io.File;
 import java.io.Serializable;
 
-import static gitlet.Utils.readContentsAsString;
+import static gitlet.Utils.*;
 
 /**
  * A blob contains a copy of the file to be staged and the name of the file.
@@ -19,5 +17,9 @@ public class Blob implements Serializable {
     public Blob(File file) {
         content = readContentsAsString(file);
         filename = file.getName();
+    }
+
+    public static String readBlobContent(String blobID) {
+        return readObject(join(Repository.blob, blobID), Blob.class).content;
     }
 }

@@ -1,0 +1,11 @@
+﻿=== Branches ===
+*master
+
+=== Staged Files ===
+wug.txt
+
+=== Removed Files ===
+=== Modifications Not Staged For Commit ===
+
+=== Untracked Files ===
+

@@ -1,0 +1,6 @@
+<<<<<<< HEAD
+line1
+line2 MODIFIED
+line3=======
+>>>>>>>
+

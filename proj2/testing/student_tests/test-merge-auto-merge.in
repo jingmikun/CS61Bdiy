@@ -1,0 +1,28 @@
+# Test auto-merge: both branches modify but result is the same
+> init
+<<<
++ file.txt file_original.txt
+> add file.txt
+<<<
+> commit "initial commit"
+<<<
+> branch other
+<<<
++ file.txt file_changed.txt
+> add file.txt
+<<<
+> commit "modified in master"
+<<<
+> checkout other
+<<<
++ file.txt file_changed.txt
+> add file.txt
+<<<
+> commit "modified in other (same result)"
+<<<
+> checkout master
+<<<
+> merge other
+<<<
+> status
+<<<

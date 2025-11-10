@@ -1,0 +1,3 @@
+<<<<<<< HEAD
+file2 in master=======
+file2 in other>>>>>>>

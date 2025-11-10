@@ -1,0 +1,39 @@
+# Basic merge test: both branches modify same file in different ways
+> init
+<<<
++ file.txt "line1
+line2
+line3"
+> add file.txt
+<<<
+> commit "first commit"
+<<<
+> branch other
+<<<
++ file.txt "line1
+line2 CHANGED
+line3"
+> add file.txt
+<<<
+> commit "modified on master"
+<<<
+> checkout other
+<<<
++ file.txt "line1
+line2
+line3 NEW"
+> add file.txt
+<<<
+> commit "modified on other"
+<<<
+> checkout master
+<<<
+> merge other
+<<<
+= file.txt "<<<<<<< HEAD
+line1
+line2 CHANGED
+line3=======
+line1
+line2
+line3 NEW>>>>>>>"

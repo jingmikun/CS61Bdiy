@@ -3,8 +3,11 @@ package gitlet;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.TreeMap;
+import java.util.HashMap;
+import java.util.List;
+
 import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
@@ -19,22 +22,28 @@ public class Commit implements Serializable {
      */
 
     /** The message of this Commit. */
-    public TreeMap<String, String> blobs = new TreeMap<>();
+    public HashMap<String, String> blobs = new HashMap<>();
     public Date timestamp;
-    public String parent;
+    public List<String> parent = new ArrayList<>();
     public String message;
 
-    public Commit (String message, String parent) {
+    public Commit (String message, String parent1, String parent2) {
         this.message = message;
-        this.parent = parent;
+        this.parent.add(parent1);
+        this.parent.add(parent2);
 
-        if (parent == null) {
+        if (parent1 == null && parent2 == null) {
             timestamp = new Date(0);
         } else {
             timestamp = new Date();
-            Commit parentcommit = readCommit(parent);
-
-            blobs.putAll(parentcommit.blobs);
+            // Use parent1 as the primary parent (parent1 should not be null in normal commits)
+            String primaryParent = parent1 != null ? parent1 : parent2;
+            if (primaryParent != null) {
+                Commit parentcommit = readCommit(primaryParent);
+                if (parentcommit != null) {
+                    blobs.putAll(parentcommit.blobs);
+                }
+            }
         }
     }
 
