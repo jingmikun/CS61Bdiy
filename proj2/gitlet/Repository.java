@@ -389,14 +389,6 @@ public class Repository {
             join(addition, stagedId).delete();
             idx.delete();
             flag1 = true;
-            // If file is not in current commit, also remove it
-            // from working directory
-            if (!curr.getBlobs().containsKey(filename)) {
-                File fileInCWD = join(CWD, filename);
-                if (fileInCWD.exists()) {
-                    restrictedDelete(fileInCWD);
-                }
-            }
         }
 
         if (curr.getBlobs().containsKey(filename)) {
@@ -630,9 +622,7 @@ public class Repository {
         for (String s : modifiedNotStaged) {
             System.out.println(s);
         }
-        if (modifiedNotStaged.isEmpty()) {
-            System.out.println();
-        }
+        System.out.println();
 
         //Print the untracked files;
         //The files in the CWD that aren't tracked by current commit nor staged
@@ -1142,37 +1132,58 @@ public class Repository {
      * @param b2
      * @return CommitId string
      */
-    private static String findSplitPoint(Branch b1, Branch b2) {
-        String p1 = b1.getHeadCommit();
-        String p2 = b2.getHeadCommit();
+    private static String findSplitPoint(Branch givenBranch, Branch currentBranch) {
+        String currentHead = currentBranch.getHeadCommit();
+        String givenHead = givenBranch.getHeadCommit();
+        if (currentHead == null || givenHead == null) {
+            return null;
+        }
 
-        while (!Objects.equals(p1, p2)) {
-            if (p1 == null) {
-                p1 = b2.getHeadCommit();
-            } else {
-                Commit c1 = Commit.readCommit(p1);
-                if (c1.getParent().isEmpty()
-                        || c1.getParent().get(0) == null) {
-                    p1 = null;
-                } else {
-                    p1 = c1.getParent().get(0);
-                }
+        Map<String, Integer> currentDistances = new HashMap<>();
+        ArrayDeque<String> queue = new ArrayDeque<>();
+        queue.add(currentHead);
+        currentDistances.put(currentHead, 0);
+
+        while (!queue.isEmpty()) {
+            String id = queue.removeFirst();
+            Commit c = Commit.readCommit(id);
+            if (c == null) {
+                continue;
             }
-            
-            if (p2 == null) {
-                p2 = b1.getHeadCommit();
-            } else {
-                Commit c2 = Commit.readCommit(p2);
-                if (c2.getParent().isEmpty()
-                        || c2.getParent().get(0) == null) {
-                    p2 = null;
-                } else {
-                    p2 = c2.getParent().get(0);
+            for (String parent : c.getParent()) {
+                if (parent != null && !currentDistances.containsKey(parent)) {
+                    currentDistances.put(parent, currentDistances.get(id) + 1);
+                    queue.addLast(parent);
                 }
             }
         }
 
-        return p1;
+        Set<String> visited = new HashSet<>();
+        queue.clear();
+        queue.add(givenHead);
+
+        while (!queue.isEmpty()) {
+            String id = queue.removeFirst();
+            if (id == null) {
+                continue;
+            }
+            if (currentDistances.containsKey(id)) {
+                return id;
+            }
+            if (visited.add(id)) {
+                Commit c = Commit.readCommit(id);
+                if (c == null) {
+                    continue;
+                }
+                for (String parent : c.getParent()) {
+                    if (parent != null) {
+                        queue.addLast(parent);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1355,6 +1366,7 @@ public class Repository {
         String rmHeadId = readObject(rmBranch, Branch.class)
                 .getHeadCommit();
         Branch.addCommit(remoteName + "/" + remoteBranch, rmHeadId);
+        copyMissingBlobs(remotePath, GITLET_DIR);
         Commit p = readObject(join(remotePath, "commit", rmHeadId),
                 Commit.class);
 
@@ -1399,15 +1411,28 @@ public class Repository {
         writeContents(join(remoteCommit, commitIdA), readContents(c));
 
         Commit cm = readObject(join(localCommit, commitIdA), Commit.class);
-        //Access to the blobs and copy them:
-        for (String k : cm.getBlobs().keySet()) {
-            File b = join(localBlobs, k);
+    }
+
+    /** Copy any blobs present in source repo but missing in destination repo. */
+    private static void copyMissingBlobs(File sourceGitlet, File destGitlet) {
+        File sourceBlobDir = join(sourceGitlet, "blob");
+        File destBlobDir = join(destGitlet, "blob");
+        List<String> blobFiles = plainFilenamesIn(sourceBlobDir);
+        if (blobFiles == null) {
+            return;
+        }
+        for (String blobName : blobFiles) {
+            File src = join(sourceBlobDir, blobName);
+            File dest = join(destBlobDir, blobName);
+            if (dest.exists()) {
+                continue;
+            }
             try {
-                join(remoteBlobs, k).createNewFile();
+                dest.createNewFile();
             } catch (IOException e) {
                 System.err.println("???????????O???: " + e.getMessage());
             }
-            writeObject(join(remoteBlobs, k), readObject(b, Blob.class));
+            writeContents(dest, readContents(src));
         }
     }
 }
