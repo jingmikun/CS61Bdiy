@@ -22,12 +22,12 @@ public class Commit implements Serializable {
      */
 
     /** The message of this Commit. */
-    public HashMap<String, String> blobs = new HashMap<>();
-    public Date timestamp;
-    public List<String> parent = new ArrayList<>();
-    public String message;
+    private HashMap<String, String> blobs = new HashMap<>();
+    private Date timestamp;
+    private List<String> parent = new ArrayList<>();
+    private String message;
 
-    public Commit (String message, String parent1, String parent2) {
+    public Commit(String message, String parent1, String parent2) {
         this.message = message;
         this.parent.add(parent1);
         this.parent.add(parent2);
@@ -41,7 +41,7 @@ public class Commit implements Serializable {
             if (primaryParent != null) {
                 Commit parentcommit = readCommit(primaryParent);
                 if (parentcommit != null) {
-                    blobs.putAll(parentcommit.blobs);
+                    blobs.putAll(parentcommit.getBlobs());
                 }
             }
         }
@@ -60,12 +60,28 @@ public class Commit implements Serializable {
         writeObject(commitPath, this);
     }
 
+    public HashMap<String, String> getBlobs() {
+        return blobs;
+    }
+
+    public Date getTimestamp() {
+        return timestamp;
+    }
+
+    public List<String> getParent() {
+        return parent;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
     public boolean checkBlob(Blob b) {
         if (blobs == null) {
             return false;
         }
 
-        String c = blobs.get(b.filename);
+        String c = blobs.get(b.getFilename());
         if (c == null) {
             return false;
         }
@@ -75,14 +91,14 @@ public class Commit implements Serializable {
 
     /**
      * Read a commit
-     * @param ID
+     * @param id
      * @return the corresponding commit object
      */
-    public static Commit readCommit(String ID) {
-        if (ID == null) {
+    public static Commit readCommit(String id) {
+        if (id == null) {
             return null;
         }
 
-        return readObject(join(Repository.commit, ID), Commit.class);
+        return readObject(join(Repository.commit, id), Commit.class);
     }
 }

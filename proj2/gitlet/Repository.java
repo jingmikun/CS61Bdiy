@@ -24,18 +24,19 @@ public class Repository {
     public static final File CWD = new File(System.getProperty("user.dir"));
     /** The .gitlet directory. */
     public static final File GITLET_DIR = join(CWD, ".gitlet");
-    public static File commit = join(GITLET_DIR, "commit");
-    public static File blob = join(GITLET_DIR, "blob");
-    public static File stage = join(GITLET_DIR, "stage");
-    public static File branch = join(GITLET_DIR, "branch");
-    public static File addition = join(stage, "addition");
-    public static File additionByName = join(stage, "addition_by_name");
-    public static File removal = join(stage, "removal");
-    public static File head = join(GITLET_DIR, "head");
-    public static File remote = join(GITLET_DIR, "remote");
+    static File commit = join(GITLET_DIR, "commit");
+    static File blob = join(GITLET_DIR, "blob");
+    static File stage = join(GITLET_DIR, "stage");
+    static File branch = join(GITLET_DIR, "branch");
+    static File addition = join(stage, "addition");
+    static File additionByName = join(stage, "addition_by_name");
+    static File removal = join(stage, "removal");
+    static File head = join(GITLET_DIR, "head");
+    static File remote = join(GITLET_DIR, "remote");
 
     /** Init Command: this function initialize a repository of gitlet,
-     * -- create a file system - create the initial commit - integrate the initial commit into curr Branch and Head
+     * -- create a file system - create the initial commit - integrate
+     * the initial commit into curr Branch and Head
      * @Para void
      */
     public static void init() {
@@ -55,13 +56,13 @@ public class Repository {
             System.err.println("创建文件时发生IO错误: " + e.getMessage());
         }
 
-        Commit init_commit = new Commit("initial commit", null, null);
-        init_commit.createCommitFile();
-        Head.writeInHead(init_commit);
+        Commit initCommit = new Commit("initial commit", null, null);
+        initCommit.createCommitFile();
+        Head.writeInHead(initCommit);
 
         Branch master = new Branch("master");
         master.createBranchFile();
-        Branch.addCommit("master", sha1(serialize(init_commit)));
+        Branch.addCommit("master", sha1(serialize(initCommit)));
         // Explicitly set current branch name to master at init
         Branch.addCurrBranchName("master");
     }
@@ -97,7 +98,7 @@ public class Repository {
         //To see whether the blob has been added in currCommit;
         Commit currentCommit = Head.returnCurrCommit();
         // If this file is already staged for addition, unstage it via index
-        File idxFile = join(additionByName, newblob.filename);
+        File idxFile = join(additionByName, newblob.getFilename());
         if (idxFile.exists()) {
             String oldId = readContentsAsString(idxFile);
             join(addition, oldId).delete();
@@ -105,7 +106,7 @@ public class Repository {
         }
 
         // Cancel pending removal for this file based on HEAD mapping
-        String trackedId = currentCommit.blobs.get(newblob.filename);
+        String trackedId = currentCommit.getBlobs().get(newblob.getFilename());
         if (trackedId != null) {
             join(removal, trackedId).delete();
         }
@@ -149,19 +150,21 @@ public class Repository {
         // Apply staged additions (if any)
         if (allStageBlobId != null) {
             for (String b: allStageBlobId) {
-                String filename = readObject(join(blob, b), Blob.class).filename;
-                if (newCommit.blobs.containsKey(filename)) {
-                    newCommit.blobs.remove(filename);
+                String filename = readObject(join(blob, b), Blob.class)
+                        .getFilename();
+                if (newCommit.getBlobs().containsKey(filename)) {
+                    newCommit.getBlobs().remove(filename);
                 }
-                newCommit.blobs.put(filename, b);
+                newCommit.getBlobs().put(filename, b);
             }
         }
 
         // Apply staged removals (if any)
         if (allRemovalBlobId != null) {
             for (String b: allRemovalBlobId) {
-                String filename = readObject(join(blob, b), Blob.class).filename;
-                newCommit.blobs.remove(filename);
+                String filename = readObject(join(blob, b), Blob.class)
+                        .getFilename();
+                newCommit.getBlobs().remove(filename);
             }
         }
 
@@ -175,8 +178,8 @@ public class Repository {
         Head.writeHeadId(sha1(serialize(newCommit)));
     }
 
-    /** The log function reads from the current commit and return a log of all its parents until inital
-     * commit.
+    /** The log function reads from the current commit and return a log
+     * of all its parents until initial commit.
      */
 
     public static void log() {
@@ -190,49 +193,54 @@ public class Repository {
             System.out.println("===");
             System.out.println("commit " + sha1(serialize(p)));
             // Print Merge line if this is a merge commit (has two parents)
-            if (p.parent.size() >= 2 && p.parent.get(0) != null && p.parent.get(1) != null) {
-                String parent1Short = p.parent.get(0).substring(0, 7);
-                String parent2Short = p.parent.get(1).substring(0, 7);
-                System.out.println("Merge: " + parent1Short + " " + parent2Short);
+            if (p.getParent().size() >= 2 && p.getParent().get(0) != null
+                    && p.getParent().get(1) != null) {
+                String parent1Short = p.getParent().get(0).substring(0, 7);
+                String parent2Short = p.getParent().get(1).substring(0, 7);
+                System.out.println("Merge: " + parent1Short + " "
+                        + parent2Short);
             }
-            System.out.println("Date: " + sdf.format(p.timestamp));
-            System.out.println(p.message);
+            System.out.println("Date: " + sdf.format(p.getTimestamp()));
+            System.out.println(p.getMessage());
+            System.out.println();
             // Check if parent exists and is not null before reading
-            if (p.parent.isEmpty() || p.parent.get(0) == null) {
+            if (p.getParent().isEmpty() || p.getParent().get(0) == null) {
                 break;
             }
-            p = Commit.readCommit(p.parent.get(0));
+            p = Commit.readCommit(p.getParent().get(0));
         }
     }
 
     /** The case I checkout：checkout with merely the file name,
-     * Takes the version of the file as it exists in the head commit and puts it in the working directory,
-     * overwriting the version of the file that’s already there if there is one.
+     * Takes the version of the file as it exists in the head commit
+     * and puts it in the working directory, overwriting the version
+     * of the file that's already there if there is one.
      * @param filename
      * */
 
     public static void checkout(String filename) {
         Commit curr = Head.returnCurrCommit();
 
-        if (!curr.blobs.containsKey(filename)) {
+        if (!curr.getBlobs().containsKey(filename)) {
             throw new GitletException("File does not exist in that commit.");
         } else {
-            String ID = curr.blobs.get(filename);
-            Blob b = readObject(join(blob, ID), Blob.class);
+            String id = curr.getBlobs().get(filename);
+            Blob b = readObject(join(blob, id), Blob.class);
             File f = join(CWD, filename);
 
-            writeContents(f, b.content);
+            writeContents(f, b.getContent());
         }
     }
 
     /** The case II checkout：checkout with merely the file name,
-     * Takes the version of the file as it exists in the head commit and puts it in the working directory,
-     * overwriting the version of the file that’s already there if there is one.
-     * @param ID, filename
+     * Takes the version of the file as it exists in the head commit
+     * and puts it in the working directory, overwriting the version
+     * of the file that's already there if there is one.
+     * @param id, filename
      ** */
 
-    public static void checkout(String ID, String filename) {
-        String resolved = resolveCommitId(ID);
+    public static void checkout(String id, String filename) {
+        String resolved = resolveCommitId(id);
         File commitPath = join(commit, resolved);
         if (!commitPath.exists()) {
             throw new GitletException("No commit with that id exists.");
@@ -240,24 +248,25 @@ public class Repository {
 
         Commit c = readObject(commitPath, Commit.class);
 
-        if (!c.blobs.containsKey(filename)) {
+        if (!c.getBlobs().containsKey(filename)) {
             throw new GitletException("File does not exist in that commit.");
         } else {
-            String id = c.blobs.get(filename);
-            Blob b = readObject(join(blob, id), Blob.class);
+            String blobId = c.getBlobs().get(filename);
+            Blob b = readObject(join(blob, blobId), Blob.class);
             File f = join(CWD, filename);
 
-            writeContents(f, b.content);
+            writeContents(f, b.getContent());
         }
     }
 
     /**Takes all files in the commit at the head of the given branch,
-     * and puts them in the working directory,overwriting the versions of the files
-     * that are already there if they exist.Also, at the end of this command,
-     * the given branch will now be considered the current branch (HEAD).
-     * Any files that are tracked in the current branch
-     * but are not present in the checked-out branch are deleted.
-     * The staging area is cleared, unless the checked-out branch is the current branch
+     * and puts them in the working directory,overwriting the versions
+     * of the files that are already there if they exist.Also, at the
+     * end of this command, the given branch will now be considered
+     * the current branch (HEAD). Any files that are tracked in the
+     * current branch but are not present in the checked-out branch
+     * are deleted. The staging area is cleared, unless the checked-out
+     * branch is the current branch
      * @param branchName
      */
 
@@ -287,11 +296,14 @@ public class Repository {
 
         Commit target = readObject(join(commit, b.getHeadCommit()), Commit.class);
 
-        // Untracked file check: any file untracked by current, but tracked by target
+        // Untracked file check: any file untracked by current,
+        // but tracked by target
         if (filesInCWD != null) {
             for (String n : filesInCWD) {
-                if (!curr.blobs.containsKey(n) && target.blobs.containsKey(n)) {
-                    throw new GitletException("There is an untracked file in the way; delete it, or add and commit it first.");
+                if (!curr.getBlobs().containsKey(n)
+                        && target.getBlobs().containsKey(n)) {
+                    throw new GitletException("There is an untracked file in "
+                            + "the way; delete it, or add and commit it first.");
                 }
             }
         }
@@ -300,14 +312,14 @@ public class Repository {
         Head.writeHeadId(b.getHeadCommit());
 
         // Remove files that are tracked in current but not in target
-        for (String n : curr.blobs.keySet()) {
-            if (!target.blobs.containsKey(n)) {
+        for (String n : curr.getBlobs().keySet()) {
+            if (!target.getBlobs().containsKey(n)) {
                 restrictedDelete(join(CWD, n));
             }
         }
 
         // Write all files tracked in target to the working directory
-        for (String n : target.blobs.keySet()) {
+        for (String n : target.getBlobs().keySet()) {
             checkout(n); // uses HEAD (now target) to write contents
         }
 
@@ -348,13 +360,14 @@ public class Repository {
         return match;
     }
 
-    /** The rm function Unstage the file if it is currently staged for addition.
-     *  If the file is tracked in the current commit,
-     *  stage it for removal and remove the file from the working directory
-     *  if the user has not already done (do not remove it unless it is tracked in the current commit).
+    /** The rm function Unstage the file if it is currently staged
+     * for addition. If the file is tracked in the current commit,
+     * stage it for removal and remove the file from the working
+     * directory if the user has not already done (do not remove it
+     * unless it is tracked in the current commit).
      * @param filename
      */
-    public static void rm (String filename) {
+    public static void rm(String filename) {
         //If the file is at stage
         List<String> allStageBlobId = plainFilenamesIn(addition);
         boolean flag1 = false; // this flag to detect whether there is a file in stage
@@ -370,8 +383,9 @@ public class Repository {
             join(addition, stagedId).delete();
             idx.delete();
             flag1 = true;
-            // If file is not in current commit, also remove it from working directory
-            if (!curr.blobs.containsKey(filename)) {
+            // If file is not in current commit, also remove it
+            // from working directory
+            if (!curr.getBlobs().containsKey(filename)) {
                 File fileInCWD = join(CWD, filename);
                 if (fileInCWD.exists()) {
                     restrictedDelete(fileInCWD);
@@ -379,8 +393,8 @@ public class Repository {
             }
         }
 
-        if (curr.blobs.containsKey(filename)) {
-            String thisBlobId = curr.blobs.get(filename);
+        if (curr.getBlobs().containsKey(filename)) {
+            String thisBlobId = curr.getBlobs().get(filename);
 
             try {
                 join(removal, thisBlobId).createNewFile();
@@ -413,13 +427,15 @@ public class Repository {
                 System.out.println("===");
                 System.out.println("commit " + c);
                 // Print Merge line if this is a merge commit (has two parents)
-                if (p.parent.size() >= 2 && p.parent.get(0) != null && p.parent.get(1) != null) {
-                    String parent1Short = p.parent.get(0).substring(0, 7);
-                    String parent2Short = p.parent.get(1).substring(0, 7);
-                    System.out.println("Merge: " + parent1Short + " " + parent2Short);
+                if (p.getParent().size() >= 2 && p.getParent().get(0) != null
+                        && p.getParent().get(1) != null) {
+                    String parent1Short = p.getParent().get(0).substring(0, 7);
+                    String parent2Short = p.getParent().get(1).substring(0, 7);
+                    System.out.println("Merge: " + parent1Short + " "
+                            + parent2Short);
                 }
-                System.out.println("Date: " + sdf.format(p.timestamp));
-                System.out.println(p.message);
+                System.out.println("Date: " + sdf.format(p.getTimestamp()));
+                System.out.println(p.getMessage());
             }
         }
     }
@@ -439,7 +455,7 @@ public class Repository {
             for (String c : allCommit) {
                 Commit p = readObject(join(commit, c), Commit.class);
 
-                if (Objects.equals(p.message, message)) {
+                if (Objects.equals(p.getMessage(), message)) {
                     System.out.println(c);
                     flag = true;
                 }
@@ -451,9 +467,9 @@ public class Repository {
         }
     }
 
-    /** Displays what branches currently exist, and marks the current branch with a *.
-     * Also displays what files have been staged for addition or removal and
-     * modifications not staged and untracked files
+    /** Displays what branches currently exist, and marks the current
+     * branch with a *. Also displays what files have been staged for
+     * addition or removal and modifications not staged and untracked files
      */
 
     public static void status() {
@@ -467,7 +483,8 @@ public class Repository {
         if (allBranchName != null) {
             Collections.sort(allBranchName);
             for (String n : allBranchName) {
-                if (!Objects.equals(n, currBranch) && !n.equals("current_Branch_Name")) {
+                if (!Objects.equals(n, currBranch)
+                        && !n.equals("current_Branch_Name")) {
                     System.out.println(n);
                 }
             }
@@ -492,7 +509,8 @@ public class Repository {
 
         if (allRemovalStage != null) {
             for (String i : allRemovalStage) {
-                allRemovalFileName.add(readObject(join(blob, i), Blob.class).filename);
+                allRemovalFileName.add(readObject(join(blob, i), Blob.class)
+                        .getFilename());
             }
         }
 
@@ -524,22 +542,26 @@ public class Repository {
                 String contentID = sha1(serialize(tmp));
                 //First case:
                 // Case 1: Tracked in current commit
-                if (curr.blobs.containsKey(n)) {
-                    String trackedId = curr.blobs.get(n);
+                if (curr.getBlobs().containsKey(n)) {
+                    String trackedId = curr.getBlobs().get(n);
                     if (!contentID.equals(trackedId)) {
-                        if (allAdditionStage == null || !allAdditionStage.contains(n)) {
+                        if (allAdditionStage == null
+                                || !allAdditionStage.contains(n)) {
                             modifiedNotStaged.add(n + " (modified)");
                         } else {
-                            String stagedId = readContentsAsString(join(additionByName, n));
+                            String stagedId = readContentsAsString(
+                                    join(additionByName, n));
                             if (!contentID.equals(stagedId)) {
                                 modifiedNotStaged.add(n + " (modified)");
                             }
                         }
                     }
-                }
-                // Case 2: Only staged (not tracked) - use else if to avoid duplication
-                else if (allAdditionStage != null && allAdditionStage.contains(n)) {
-                    String stagedId = readContentsAsString(join(additionByName, n));
+                } else if (allAdditionStage != null
+                        && allAdditionStage.contains(n)) {
+                    // Case 2: Only staged (not tracked) - use else if
+                    // to avoid duplication
+                    String stagedId = readContentsAsString(
+                            join(additionByName, n));
                     if (!contentID.equals(stagedId)) {
                         modifiedNotStaged.add(n + " (modified)");
                     }
@@ -558,9 +580,10 @@ public class Repository {
         }
 
         //Fourth Case:
-        for (String n : curr.blobs.keySet()) {
+        for (String n : curr.getBlobs().keySet()) {
             if (fileInCWD != null) {
-                if (!fileInCWD.contains(n) && !allRemovalFileName.contains(n)) {
+                if (!fileInCWD.contains(n)
+                        && !allRemovalFileName.contains(n)) {
                     modifiedNotStaged.add(n + " (deleted)");
                 }
             }
@@ -585,10 +608,12 @@ public class Repository {
         List<String> untracked = new ArrayList<>();
         if (fileInCWD != null) {
             for (String s : fileInCWD) {
-                // Exclude files that are staged for addition or removal, or tracked in current commit
-                boolean isStagedForAddition = allAdditionStage != null && allAdditionStage.contains(s);
+                // Exclude files that are staged for addition or removal,
+                // or tracked in current commit
+                boolean isStagedForAddition = allAdditionStage != null
+                        && allAdditionStage.contains(s);
                 boolean isStagedForRemoval = allRemovalFileName.contains(s);
-                boolean isTracked = curr.blobs.containsKey(s);
+                boolean isTracked = curr.getBlobs().containsKey(s);
                 
                 if (!isStagedForAddition && !isStagedForRemoval && !isTracked) {
                     untracked.add(s);
@@ -642,19 +667,20 @@ public class Repository {
 
     /** Checks out all the files tracked by the given commit.
      * Removes tracked files that are not present in that commit.
-     * Also moves the current branch’s head to that commit node.
-     * @param commitID
+     * Also moves the current branch's head to that commit node.
+     * @param commitId
      */
 
-    public static void reset(String commitID) {
+    public static void reset(String commitId) {
         // Check for uncommitted changes
         List<String> adds = plainFilenamesIn(addition);
         List<String> rms = plainFilenamesIn(removal);
-        if ((adds != null && !adds.isEmpty()) || (rms != null && !rms.isEmpty())) {
+        if ((adds != null && !adds.isEmpty())
+                || (rms != null && !rms.isEmpty())) {
             throw new GitletException("You have uncommitted changes.");
         }
 
-        String resolved = resolveCommitId(commitID);
+        String resolved = resolveCommitId(commitId);
         Commit target = Commit.readCommit(resolved);
         Commit curr = Head.returnCurrCommit();
 
@@ -662,30 +688,33 @@ public class Repository {
         List<String> filesInCWD = plainFilenamesIn(CWD);
         if (filesInCWD != null) {
             for (String n : filesInCWD) {
-                if (!curr.blobs.containsKey(n) && target.blobs.containsKey(n)) {
-                    throw new GitletException("There is an untracked file in the way; delete it, or add and commit it first.");
+                if (!curr.getBlobs().containsKey(n)
+                        && target.getBlobs().containsKey(n)) {
+                    throw new GitletException("There is an untracked file in "
+                            + "the way; delete it, or add and commit it first.");
                 }
             }
         }
 
         // Remove files tracked in current but not in target
-        for (String n : curr.blobs.keySet()) {
-            if (!target.blobs.containsKey(n)) {
+        for (String n : curr.getBlobs().keySet()) {
+            if (!target.getBlobs().containsKey(n)) {
                 restrictedDelete(join(CWD, n));
             }
         }
 
         // Write all files tracked in target commit
-        for (String n : target.blobs.keySet()) {
+        for (String n : target.getBlobs().keySet()) {
             checkout(resolved, n);
         }
 
         // Clear staging area fully (additions, index, removals)
         clearStaging();
 
-        // Update HEAD and move current branch’s head to target
+        // Update HEAD and move current branch's head to target
         Head.writeHeadId(resolved);
-        readObject(join(branch, Branch.readCurrBranchName()), Branch.class).changeHeadCommit(resolved);
+        readObject(join(branch, Branch.readCurrBranchName()), Branch.class)
+                .changeHeadCommit(resolved);
     }
 
     public static void merge(String branchName) {
@@ -716,18 +745,22 @@ public class Repository {
             return;
         }
         
-        String sp = findSplitPoint(Branch.readBranch(branchName), Branch.readBranch(Branch.readCurrBranchName()));
+        String sp = findSplitPoint(Branch.readBranch(branchName),
+                Branch.readBranch(Branch.readCurrBranchName()));
 
-        //Split point exceptions - this check is redundant since isAncestor above already handles it
-        // But keeping it as a defensive check in case split point equals given head for other reasons
+        //Split point exceptions - this check is redundant since
+        // isAncestor above already handles it. But keeping it as a
+        // defensive check in case split point equals given head for
+        // other reasons
         if (sp != null && sp.equals(givenHead)) {
             System.out.println("Given branch is an ancestor of the current branch.");
             return;
         }
 
         // Fast-forward: when split point equals current head
-        // According to spec: "If the split point is the current branch, then the effect is to 
-        // check out the given branch, and the operation ends after printing the message"
+        // According to spec: "If the split point is the current
+        // branch, then the effect is to check out the given branch,
+        // and the operation ends after printing the message"
         if (sp != null && sp.equals(Branch.readCurrHeadCommit())) {
             checkoutWithBranch(branchName);
             System.out.println("Current branch fast-forwarded.");
@@ -735,9 +768,12 @@ public class Repository {
         }
 
         //Normal case
-        //Check the untracked files in curr commit, which exists in CWD and given commit
-        Commit givenHeadCommit = Commit.readCommit(Branch.readBranch(branchName).getHeadCommit());
-        Commit currHeadCommit = Commit.readCommit(Branch.readCurrHeadCommit());
+        //Check the untracked files in curr commit, which exists
+        // in CWD and given commit
+        Commit givenHeadCommit = Commit.readCommit(
+                Branch.readBranch(branchName).getHeadCommit());
+        Commit currHeadCommit = Commit.readCommit(
+                Branch.readCurrHeadCommit());
         Commit spCommit = Commit.readCommit(sp);
 
         // Track if merge encountered conflicts
@@ -748,75 +784,114 @@ public class Repository {
         List<String> filesInCWD = plainFilenamesIn(CWD);
         if (filesInCWD != null) {
             for (String n : filesInCWD) {
-                // Skip if file is deleted in both branches (will be handled in both delete case)
-                boolean bothDeleted = spCommit.blobs.containsKey(n) 
-                        && !currHeadCommit.blobs.containsKey(n) 
-                        && !givenHeadCommit.blobs.containsKey(n);
+                // Skip if file is deleted in both branches (will be
+                // handled in both delete case)
+                boolean bothDeleted = spCommit.getBlobs()
+                        .containsKey(n)
+                        && !currHeadCommit.getBlobs().containsKey(n)
+                        && !givenHeadCommit.getBlobs().containsKey(n);
                 if (bothDeleted) {
                     continue; // Skip this file, it will be handled later
                 }
                 // Check if file would be overwritten by given branch
-                if (!currHeadCommit.blobs.containsKey(n) && givenHeadCommit.blobs.containsKey(n)) {
-                    throw new GitletException("There is an untracked file in the way; delete it, or add and commit it first.");
+                if (!currHeadCommit.getBlobs().containsKey(n)
+                        && givenHeadCommit.getBlobs().containsKey(n)) {
+                    throw new GitletException("There is an untracked file in "
+                            + "the way; delete it, or add and commit it first.");
                 }
-                // Check if file would be overwritten by current branch checkout
-                if (!givenHeadCommit.blobs.containsKey(n) && currHeadCommit.blobs.containsKey(n)) {
-                    throw new GitletException("There is an untracked file in the way; delete it, or add and commit it first.");
+                // Check if file would be overwritten by current branch
+                // checkout
+                if (!givenHeadCommit.getBlobs().containsKey(n)
+                        && currHeadCommit.getBlobs().containsKey(n)) {
+                    throw new GitletException("There is an untracked file in "
+                            + "the way; delete it, or add and commit it first.");
                 }
             }
         }
-        /* Any files that have been modified in the given branch since the split point,
-          but not modified in the current branch since the split point should be changed to
-          their versions in the given branch (checked out from the commit at the front of the given branch).
+        /* Any files that have been modified in the given branch since
+          the split point, but not modified in the current branch since
+          the split point should be changed to their versions in the
+          given branch (checked out from the commit at the front of the
+          given branch).
          */
-        /*Any files that have been modified in the current branch but not
-          in the given branch since the split point should stay as they are.
+        /*Any files that have been modified in the current branch but
+          not in the given branch since the split point should stay as
+          they are.
          */
-        for (String n : givenHeadCommit.blobs.keySet()) {
+        for (String n : givenHeadCommit.getBlobs().keySet()) {
             //Check is modified since sp
-            if (spCommit.blobs.containsKey(n) && !Objects.equals(spCommit.blobs.get(n), givenHeadCommit.blobs.get(n))) {
-                if (currHeadCommit.blobs.containsKey(n) && Objects.equals(spCommit.blobs.get(n), currHeadCommit.blobs.get(n))) {
+            if (spCommit.getBlobs().containsKey(n)
+                    && !Objects.equals(spCommit.getBlobs().get(n),
+                            givenHeadCommit.getBlobs().get(n))) {
+                if (currHeadCommit.getBlobs().containsKey(n)
+                        && Objects.equals(spCommit.getBlobs().get(n),
+                                currHeadCommit.getBlobs().get(n))) {
                     //modified in given branch but not modified in curr branch
                     //change the version
-                    checkout(Branch.readBranch(branchName).getHeadCommit(), n);
+                    checkout(Branch.readBranch(branchName)
+                            .getHeadCommit(), n);
                     add(join(CWD, n));
                 }
             }
             //Any files that were not present at the split point
-            //and are present only in the given branch should be checked out and staged.
-            //But if it's also in current branch with different content, it's a conflict (handled later)
-            if (!spCommit.blobs.containsKey(n) && !currHeadCommit.blobs.containsKey(n)) {
-                checkout(Branch.readBranch(branchName).getHeadCommit(), n);
+            //and are present only in the given branch should be checked
+            //out and staged. But if it's also in current branch with
+            //different content, it's a conflict (handled later)
+            if (!spCommit.getBlobs().containsKey(n)
+                    && !currHeadCommit.getBlobs().containsKey(n)) {
+                checkout(Branch.readBranch(branchName)
+                        .getHeadCommit(), n);
                 add(join(CWD, n));
             }
             // Conflict: new file in both branches with different content
-            if (!spCommit.blobs.containsKey(n) && currHeadCommit.blobs.containsKey(n) 
-                    && !Objects.equals(currHeadCommit.blobs.get(n), givenHeadCommit.blobs.get(n))) {
-                String givenContent = Blob.readBlobContent(givenHeadCommit.blobs.get(n));
-                String currContent = Blob.readBlobContent(currHeadCommit.blobs.get(n));
-                // Handle null content - treat deleted files as empty strings
-                if (givenContent == null) givenContent = "";
-                if (currContent == null) currContent = "";
+            if (!spCommit.getBlobs().containsKey(n)
+                    && currHeadCommit.getBlobs().containsKey(n)
+                    && !Objects.equals(currHeadCommit.getBlobs().get(n),
+                            givenHeadCommit.getBlobs().get(n))) {
+                String givenContent = Blob.readBlobContent(
+                        givenHeadCommit.getBlobs().get(n));
+                String currContent = Blob.readBlobContent(
+                        currHeadCommit.getBlobs().get(n));
+                // Handle null content - treat deleted files as empty
+                // strings
+                if (givenContent == null) {
+                    givenContent = "";
+                }
+                if (currContent == null) {
+                    currContent = "";
+                }
                 // Format: <<<<<<< HEAD\n<curr>=======\n<given>>>>>>>\n
-                // Use straight concatenation - if file has no newline at end, separators will be on same line
-                String conflictContent = "<<<<<<< HEAD\n" + currContent + "=======\n" + givenContent + ">>>>>>>\n";
+                // Use straight concatenation - if file has no newline
+                // at end, separators will be on same line
+                String conflictContent = "<<<<<<< HEAD\n" + currContent
+                        + "=======\n" + givenContent + ">>>>>>>\n";
                 writeContents(join(CWD, n), conflictContent);
                 add(join(CWD, n)); // Stage the conflict file
                 hasConflict = true; // Mark that we encountered a conflict
                 // Continue to create merge commit (don't throw exception)
             }
             //Merge Conflicts
-            // Conflict: file existed at split point, deleted in current branch, but modified in given branch
-            // Note: If file is also deleted in given branch, no conflict (handled in both delete case)
-            if (spCommit.blobs.containsKey(n) && !currHeadCommit.blobs.containsKey(n) 
-                    && givenHeadCommit.blobs.containsKey(n) 
-                    && !Objects.equals(givenHeadCommit.blobs.get(n), spCommit.blobs.get(n))) {
-                String givenContent = Blob.readBlobContent(givenHeadCommit.blobs.get(n));
-                // Handle null content - treat deleted file as empty string
-                if (givenContent == null) givenContent = "";
+            // Conflict: file existed at split point, deleted in
+            // current branch, but modified in given branch
+            // Note: If file is also deleted in given branch, no
+            // conflict (handled in both delete case)
+            if (spCommit.getBlobs().containsKey(n)
+                    && !currHeadCommit.getBlobs().containsKey(n)
+                    && givenHeadCommit.getBlobs().containsKey(n)
+                    && !Objects.equals(givenHeadCommit.getBlobs().get(n),
+                            spCommit.getBlobs().get(n))) {
+                String givenContent = Blob.readBlobContent(
+                        givenHeadCommit.getBlobs().get(n));
+                // Handle null content - treat deleted file as empty
+                // string
+                if (givenContent == null) {
+                    givenContent = "";
+                }
                 // Format: <<<<<<< HEAD\n=======\n<given>>>>>>>\n
-                // Use straight concatenation - deleted file in current branch is empty
-                String conflictContent = "<<<<<<< HEAD\n=======\n" + givenContent + ">>>>>>>\n";
+                // Use straight concatenation - deleted file in current
+                // branch is empty
+                String conflictContent = "<<<<<<< HEAD\n=======\n"
+                        + givenContent + ">>>>>>>\n";
 
                 writeContents(join(CWD, n), conflictContent);
                 add(join(CWD, n)); // Stage the conflict file
@@ -826,27 +901,37 @@ public class Repository {
         }
 
         // Check files from split point to handle special cases
-        for (String splitFile : spCommit.blobs.keySet()) {
-            // Handle both delete case: file existed at split point, deleted in both branches
-            // According to spec: "If a file was removed from both the current and given branch, 
-            // but a file of the same name is present in the working directory, it is left alone 
-            // and continues to be absent (not tracked nor staged) in the merge."
-            if (!currHeadCommit.blobs.containsKey(splitFile) && !givenHeadCommit.blobs.containsKey(splitFile)) {
+        for (String splitFile : spCommit.getBlobs().keySet()) {
+            // Handle both delete case: file existed at split point,
+            // deleted in both branches
+            // According to spec: "If a file was removed from both the
+            // current and given branch, but a file of the same name is
+            // present in the working directory, it is left alone and
+            // continues to be absent (not tracked nor staged) in the merge."
+            if (!currHeadCommit.getBlobs().containsKey(splitFile)
+                    && !givenHeadCommit.getBlobs().containsKey(splitFile)) {
                 // File deleted in both branches - leave working directory file alone (do nothing)
                 // The file will remain untracked and unstaged
                 continue; // Skip this file
             }
-            // Handle: file existed at split point, unmodified in given branch, absent in current branch
-            // According to spec: "Any files present at the split point, unmodified in the given branch, 
-            // and absent in the current branch should remain absent."
-            // This case is already handled implicitly - if file is not in currHeadCommit, it won't be 
-            // processed in the currHeadCommit loop, so it remains absent. No action needed.
+            // Handle: file existed at split point, unmodified in given
+            // branch, absent in current branch
+            // According to spec: "Any files present at the split point,
+            // unmodified in the given branch, and absent in the current
+            // branch should remain absent."
+            // This case is already handled implicitly - if file is not
+            // in currHeadCommit, it won't be processed in the
+            // currHeadCommit loop, so it remains absent. No action needed.
         }
         
-        for (String s : currHeadCommit.blobs.keySet()) {
-            //Any files present at the split point, unmodified in the current branch,
-            //and absent in the given branch should be removed (and untracked).
-            if (spCommit.blobs.containsKey(s) && Objects.equals(currHeadCommit.blobs.get(s), spCommit.blobs.get(s)) && !givenHeadCommit.blobs.containsKey(s)) {
+        for (String s : currHeadCommit.getBlobs().keySet()) {
+            //Any files present at the split point, unmodified in the
+            //current branch, and absent in the given branch should be
+            //removed (and untracked).
+            if (spCommit.getBlobs().containsKey(s)
+                    && Objects.equals(currHeadCommit.getBlobs().get(s),
+                            spCommit.getBlobs().get(s))
+                    && !givenHeadCommit.getBlobs().containsKey(s)) {
                 rm(s);
                 continue; // Skip conflict checking for this file
             }
@@ -854,51 +939,77 @@ public class Repository {
             //Merge conflicts
             // Conflict occurs when:
             // 1. File exists in both branches but with different content
-            // 2. File was modified in both branches since split point (if split point exists)
-            //    OR file is new in both branches (if split point doesn't exist) with different content
-            if (givenHeadCommit.blobs.containsKey(s) && !givenHeadCommit.blobs.get(s).equals(currHeadCommit.blobs.get(s))) {
+            // 2. File was modified in both branches since split point
+            //    (if split point exists)
+            //    OR file is new in both branches (if split point doesn't
+            //    exist) with different content
+            if (givenHeadCommit.getBlobs().containsKey(s)
+                    && !givenHeadCommit.getBlobs().get(s)
+                            .equals(currHeadCommit.getBlobs().get(s))) {
                 boolean isConflict = false;
                 
-                if (spCommit.blobs.containsKey(s)) {
+                if (spCommit.getBlobs().containsKey(s)) {
                     // File existed at split point
-                    boolean currModified = !Objects.equals(spCommit.blobs.get(s), currHeadCommit.blobs.get(s));
-                    boolean givenModified = !Objects.equals(spCommit.blobs.get(s), givenHeadCommit.blobs.get(s));
+                    boolean currModified = !Objects.equals(
+                            spCommit.getBlobs().get(s),
+                            currHeadCommit.getBlobs().get(s));
+                    boolean givenModified = !Objects.equals(
+                            spCommit.getBlobs().get(s),
+                            givenHeadCommit.getBlobs().get(s));
                     
                     if (currModified && givenModified) {
                         // Both modified - check if results are the same
                         // If results are the same, auto-merge (no conflict)
                         // If results are different, conflict
-                        if (!Objects.equals(currHeadCommit.blobs.get(s), givenHeadCommit.blobs.get(s))) {
+                        if (!Objects.equals(currHeadCommit.getBlobs()
+                                .get(s), givenHeadCommit.getBlobs()
+                                .get(s))) {
                             isConflict = true;
                         }
-                        // If results are the same, isConflict stays false, file stays as is (auto-merged)
+                        // If results are the same, isConflict stays false,
+                        // file stays as is (auto-merged)
                     } else if (currModified && !givenModified) {
-                        // Current modified, given unmodified - keep current (already in working directory)
+                        // Current modified, given unmodified - keep current
+                        // (already in working directory)
                         // No action needed, file stays as is
                         continue;
                     } else if (!currModified && givenModified) {
-                        // Current unmodified, given modified - should be handled in givenHeadCommit loop
-                        // But if we reach here, it means it wasn't handled there (maybe conflict case)
-                        // Actually this case should be handled in lines 695-701, so if we reach here
-                        // it might be an error, but to be safe, we'll skip it
+                        // Current unmodified, given modified - should be
+                        // handled in givenHeadCommit loop
+                        // But if we reach here, it means it wasn't handled
+                        // there (maybe conflict case)
+                        // Actually this case should be handled in lines
+                        // 695-701, so if we reach here it might be an
+                        // error, but to be safe, we'll skip it
                         continue;
                     }
-                    // If neither modified but contents are different, that shouldn't happen
+                    // If neither modified but contents are different,
+                    // that shouldn't happen
                 } else {
-                    // File didn't exist at split point - new in both branches
+                    // File didn't exist at split point - new in both
+                    // branches
                     // If both have it but different, it's a conflict
                     isConflict = true;
                 }
                 
                 if (isConflict) {
-                    String givenContent = Blob.readBlobContent(givenHeadCommit.blobs.get(s));
-                    String currContent = Blob.readBlobContent(currHeadCommit.blobs.get(s));
-                    // Handle null content - treat deleted files as empty strings
-                    if (givenContent == null) givenContent = "";
-                    if (currContent == null) currContent = "";
+                    String givenContent = Blob.readBlobContent(
+                            givenHeadCommit.getBlobs().get(s));
+                    String currContent = Blob.readBlobContent(
+                            currHeadCommit.getBlobs().get(s));
+                    // Handle null content - treat deleted files as empty
+                    // strings
+                    if (givenContent == null) {
+                        givenContent = "";
+                    }
+                    if (currContent == null) {
+                        currContent = "";
+                    }
                     // Format: <<<<<<< HEAD\n<curr>=======\n<given>>>>>>>\n
-                    // Use straight concatenation - if file has no newline at end, separators will be on same line
-                    String conflictContent = "<<<<<<< HEAD\n" + currContent + "=======\n" + givenContent + ">>>>>>>\n";
+                    // Use straight concatenation - if file has no newline
+                    // at end, separators will be on same line
+                    String conflictContent = "<<<<<<< HEAD\n" + currContent
+                            + "=======\n" + givenContent + ">>>>>>>\n";
 
                     writeContents(join(CWD, s), conflictContent);
                     add(join(CWD, s)); // Stage the conflict file
@@ -908,15 +1019,25 @@ public class Repository {
             }
 
             //Merge Conflicts
-            // Conflict: file existed at split point, deleted in given branch, but modified in current branch
-            // This must be checked BEFORE the "both branches have different content" check
-            if (spCommit.blobs.containsKey(s) && !givenHeadCommit.blobs.containsKey(s) && !Objects.equals(currHeadCommit.blobs.get(s), spCommit.blobs.get(s))) {
-                String currContent = Blob.readBlobContent(currHeadCommit.blobs.get(s));
+            // Conflict: file existed at split point, deleted in given
+            // branch, but modified in current branch
+            // This must be checked BEFORE the "both branches have
+            // different content" check
+            if (spCommit.getBlobs().containsKey(s)
+                    && !givenHeadCommit.getBlobs().containsKey(s)
+                    && !Objects.equals(currHeadCommit.getBlobs().get(s),
+                            spCommit.getBlobs().get(s))) {
+                String currContent = Blob.readBlobContent(
+                        currHeadCommit.getBlobs().get(s));
                 // Handle null content - treat deleted file as empty string
-                if (currContent == null) currContent = "";
+                if (currContent == null) {
+                    currContent = "";
+                }
                 // Format: <<<<<<< HEAD\n<curr>=======\n>>>>>>>\n
-                // Use straight concatenation - deleted file in given branch is empty
-                String conflictContent = "<<<<<<< HEAD\n" + currContent + "=======\n>>>>>>>\n";
+                // Use straight concatenation - deleted file in given
+                // branch is empty
+                String conflictContent = "<<<<<<< HEAD\n" + currContent
+                        + "=======\n>>>>>>>\n";
 
                 writeContents(join(CWD, s), conflictContent);
                 add(join(CWD, s)); // Stage the conflict file
@@ -933,23 +1054,31 @@ public class Repository {
         boolean noStagedRemoves = (stagedRms == null || stagedRms.isEmpty());
         
         if (noStagedAdds && noStagedRemoves) {
-            // No changes staged, but this is a merge - create commit anyway
-            // This can happen when both branches deleted the same file, or other cases
-            String currentCommitID = Branch.readCurrHeadCommit();
-            Commit newCommit = new Commit("Merged " + branchName + " into " + Branch.readCurrBranchName() + ".", 
-                    currentCommitID, Branch.readBranch(branchName).getHeadCommit());
+            // No changes staged, but this is a merge - create commit
+            // anyway
+            // This can happen when both branches deleted the same file,
+            // or other cases
+            String currentCommitId = Branch.readCurrHeadCommit();
+            Commit newCommit = new Commit("Merged " + branchName + " into "
+                    + Branch.readCurrBranchName() + ".",
+                    currentCommitId,
+                    Branch.readBranch(branchName).getHeadCommit());
             newCommit.createCommitFile();
             clearStaging();
-            Branch.addCommit(Branch.readCurrBranchName(), sha1(serialize(newCommit)));
+            Branch.addCommit(Branch.readCurrBranchName(),
+                    sha1(serialize(newCommit)));
             Head.writeHeadId(sha1(serialize(newCommit)));
         } else {
             // Use the actual current head commit ID, not the calculated one
-            String currentCommitID = Branch.readCurrHeadCommit();
-            // Temporarily set HEAD to use the correct commit ID for commit() method
-            // But actually, commit() uses sha1(serialize(Head.returnCurrCommit()))
-            // So we need to ensure HEAD points to the correct commit
-            // Actually, commit() should work correctly as HEAD should already point to the right commit
-            commit("Merged " + branchName + " into " + Branch.readCurrBranchName() + ".", Branch.readBranch(branchName).getHeadCommit());
+            // Temporarily set HEAD to use the correct commit ID for
+            // commit() method. But actually, commit() uses
+            // sha1(serialize(Head.returnCurrCommit())). So we need to
+            // ensure HEAD points to the correct commit. Actually,
+            // commit() should work correctly as HEAD should already
+            // point to the right commit
+            commit("Merged " + branchName + " into "
+                    + Branch.readCurrBranchName() + ".",
+                    Branch.readBranch(branchName).getHeadCommit());
         }
         
         // After committing, check if we encountered conflicts and print message
@@ -959,16 +1088,16 @@ public class Repository {
     }
 
     /**
-     * The private function helps to find the split point, given the two branches and
-     * returns the commitID of the split point commit.If they don't have shared points,
-     * returns null.
-     * The logic of which is the crossing linkedlist problem, the time complexity is O(N+M) and space compexity
-     * is O(1)
+     * The private function helps to find the split point, given the two
+     * branches and returns the commitID of the split point commit.If
+     * they don't have shared points, returns null.
+     * The logic of which is the crossing linkedlist problem, the time
+     * complexity is O(N+M) and space complexity is O(1)
      * @param b1
      * @param b2
      * @return CommitId string
      */
-    private static String findSplitPoint(Branch b1, Branch b2){
+    private static String findSplitPoint(Branch b1, Branch b2) {
         String p1 = b1.getHeadCommit();
         String p2 = b2.getHeadCommit();
 
@@ -977,10 +1106,11 @@ public class Repository {
                 p1 = b2.getHeadCommit();
             } else {
                 Commit c1 = Commit.readCommit(p1);
-                if (c1.parent.isEmpty() || c1.parent.get(0) == null) {
+                if (c1.getParent().isEmpty()
+                        || c1.getParent().get(0) == null) {
                     p1 = null;
                 } else {
-                    p1 = c1.parent.get(0);
+                    p1 = c1.getParent().get(0);
                 }
             }
             
@@ -988,10 +1118,11 @@ public class Repository {
                 p2 = b1.getHeadCommit();
             } else {
                 Commit c2 = Commit.readCommit(p2);
-                if (c2.parent.isEmpty() || c2.parent.get(0) == null) {
+                if (c2.getParent().isEmpty()
+                        || c2.getParent().get(0) == null) {
                     p2 = null;
                 } else {
-                    p2 = c2.parent.get(0);
+                    p2 = c2.getParent().get(0);
                 }
             }
         }
@@ -1019,7 +1150,7 @@ public class Repository {
         }
         
         // Check all parents (including merge commits)
-        for (String parent : c2.parent) {
+        for (String parent : c2.getParent()) {
             if (parent != null && isAncestor(commit1, parent)) {
                 return true;
             }
@@ -1093,10 +1224,11 @@ public class Repository {
             //Copy all the commits in local branch
             Commit p = Commit.readCommit(Branch.readCurrHeadCommit());
 
-            while (!p.parent.isEmpty() && p.parent.get(0) != null) {
+            while (!p.getParent().isEmpty()
+                    && p.getParent().get(0) != null) {
                 copyCommit(GITLET_DIR, sha1(serialize(p)), remotePath);
 
-                p = Commit.readCommit(p.parent.get(0));
+                p = Commit.readCommit(p.getParent().get(0));
             }
 
             //Set the Branch Head Commit;
@@ -1104,17 +1236,20 @@ public class Repository {
             writeObject(rb, remBranch);
         }
 
-        //Check whether it's a histroical commit
+        //Check whether it's a historical commit
         Branch rbranch = readObject(rb, Branch.class);
         Boolean isHistorical = false;
         Commit p = Commit.readCommit(Branch.readCurrHeadCommit());
 
-        while (p != null && !p.parent.isEmpty() && p.parent.get(0) != null) {
+        while (p != null && !p.getParent().isEmpty()
+                && p.getParent().get(0) != null) {
             String remoteHead = rbranch.getHeadCommit();
-            String currHead = sha1(serialize(Commit.readCommit(Branch.readCurrHeadCommit())));
-            isHistorical = Objects.equals(remoteHead, currHead) || isAncestor(remoteHead, currHead);
+            String currHead = sha1(serialize(Commit.readCommit(
+                    Branch.readCurrHeadCommit())));
+            isHistorical = Objects.equals(remoteHead, currHead)
+                    || isAncestor(remoteHead, currHead);
 
-            p = Commit.readCommit(p.parent.get(0));
+            p = Commit.readCommit(p.getParent().get(0));
         }
 
         if (!isHistorical) {
@@ -1125,10 +1260,11 @@ public class Repository {
             String remoteHead = rbranch.getHeadCommit();
             while (q != null && !sha1(serialize(q)).equals(remoteHead)) {
                 copyCommit(GITLET_DIR, sha1(serialize(q)), remotePath);
-                if (q.parent.isEmpty() || q.parent.get(0) == null) {
+                if (q.getParent().isEmpty()
+                        || q.getParent().get(0) == null) {
                     break;
                 }
-                q = Commit.readCommit(q.parent.get(0));
+                q = Commit.readCommit(q.getParent().get(0));
             }
 
             //Set new headCommit - fast-forwarded
@@ -1137,12 +1273,15 @@ public class Repository {
         }
     }
 
-    /** Brings down commits from the remote Gitlet repository into the local Gitlet repository.
-     * Basically, this copies all commits and blobs from the given branch in the remote repository
-     *  (that are not already in the current repository) into a branch named [remote name]/[remote branch name]
-     *  in the local .gitlet (just as in real Git), changing [remote name]/[remote branch name] to point to the head commit
-     *  (thus copying the contents of the branch from the remote repository to the current one).
-     *  This branch is created in the local repository if it did not previously exist.
+    /** Brings down commits from the remote Gitlet repository into the
+     * local Gitlet repository. Basically, this copies all commits and
+     * blobs from the given branch in the remote repository (that are
+     * not already in the current repository) into a branch named
+     * [remote name]/[remote branch name] in the local .gitlet (just as
+     * in real Git), changing [remote name]/[remote branch name] to
+     * point to the head commit (thus copying the contents of the branch
+     * from the remote repository to the current one). This branch is
+     * created in the local repository if it did not previously exist.
      * @param remoteName
      * @param remoteBranch
      */
@@ -1166,33 +1305,39 @@ public class Repository {
             b.createBranchFile();
         }
 
-        Branch targetBranch = readObject(join(branch, remoteName + "/" + remoteBranch), Branch.class);
-        String rmHeadID = readObject(rmBranch, Branch.class).getHeadCommit();
-        Branch.addCommit(remoteName + "/" + remoteBranch, rmHeadID);
-        Commit p = readObject(join(remotePath, "commit", rmHeadID), Commit.class);
+        Branch targetBranch = readObject(join(branch, remoteName + "/"
+                + remoteBranch), Branch.class);
+        String rmHeadId = readObject(rmBranch, Branch.class)
+                .getHeadCommit();
+        Branch.addCommit(remoteName + "/" + remoteBranch, rmHeadId);
+        Commit p = readObject(join(remotePath, "commit", rmHeadId),
+                Commit.class);
 
-        while (!p.parent.isEmpty() && p.parent.get(0) != null) {
-            if (!join(commit, rmHeadID).exists()) {
-                copyCommit(remotePath, rmHeadID, GITLET_DIR);
+        while (!p.getParent().isEmpty()
+                && p.getParent().get(0) != null) {
+            if (!join(commit, rmHeadId).exists()) {
+                copyCommit(remotePath, rmHeadId, GITLET_DIR);
             }
 
-            rmHeadID = p.parent.get(0);
-            p = readObject(join(remotePath, "commit", rmHeadID), Commit.class);
+            rmHeadId = p.getParent().get(0);
+            p = readObject(join(remotePath, "commit", rmHeadId),
+                    Commit.class);
         }
     }
 
-    public static void pull(String remoteName, String remoteBranch){
+    public static void pull(String remoteName, String remoteBranch) {
         fetch(remoteName, remoteBranch);
         merge(remoteName + "/" + remoteBranch);
     }
 
-    /** this helper functions copies commit and its corresponding blobs from local Gitlet repo
-     * to remote gitlet repo
+    /** this helper functions copies commit and its corresponding blobs
+     * from local Gitlet repo to remote gitlet repo
      * @param localPath
-     * @param commitIDA
+     * @param commitIdA
      * @param remotePath
      */
-    private static void copyCommit(File localPath, String commitIDA, File remotePath) {
+    private static void copyCommit(File localPath, String commitIdA,
+            File remotePath) {
         File localCommit = join(localPath, "commit");
         File localBlobs = join(localPath, "blob");
         File remoteCommit = join(remotePath, "commit");
@@ -1200,17 +1345,17 @@ public class Repository {
 
         //We assume the commit exist
         //firstly copy the commit
-        File c = join(localCommit, commitIDA);
+        File c = join(localCommit, commitIdA);
         try {
-            join(remoteCommit, commitIDA).createNewFile();
+            join(remoteCommit, commitIdA).createNewFile();
         } catch (IOException e) {
             System.err.println("创建文件时发生IO错误: " + e.getMessage());
         }
-        writeContents(join(remoteCommit, commitIDA), readContents(c));
+        writeContents(join(remoteCommit, commitIdA), readContents(c));
 
-        Commit cm = readObject(join(localCommit, commitIDA), Commit.class);
+        Commit cm = readObject(join(localCommit, commitIdA), Commit.class);
         //Access to the blobs and copy them:
-        for (String k : cm.blobs.keySet()) {
+        for (String k : cm.getBlobs().keySet()) {
             File b = join(localBlobs, k);
             try {
                 join(remoteBlobs, k).createNewFile();

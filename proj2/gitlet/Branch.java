@@ -8,7 +8,7 @@ import static gitlet.Utils.*;
 
 public class Branch implements Serializable {
 
-    public String name;
+    private String name;
     private String headCommit;
 
     public Branch(String name) {
@@ -59,15 +59,19 @@ public class Branch implements Serializable {
         return headCommit;
     }
 
-    public void changeHeadCommit(String ID) {
+    public String getName() {
+        return name;
+    }
+
+    public void changeHeadCommit(String id) {
         File thisBranch = join(Repository.branch, this.name);
 
-        this.headCommit = ID;
+        this.headCommit = id;
         writeObject(thisBranch, this);
     }
 
-    public void changeHeadCommitRemote(String ID) {
-        this.headCommit = ID;
+    public void changeHeadCommitRemote(String id) {
+        this.headCommit = id;
     }
 
     public static Branch readBranch(String name) {

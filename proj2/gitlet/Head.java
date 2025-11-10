@@ -9,7 +9,7 @@ import static gitlet.Utils.*;
 public class Head {
     private static File HEAD_PATH = Repository.head;
 
-    public static void writeInHead(Commit commit){
+    public static void writeInHead(Commit commit) {
         writeContents(HEAD_PATH, sha1(serialize(commit)));
     }
 

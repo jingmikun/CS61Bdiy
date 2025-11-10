@@ -11,15 +11,23 @@ import static gitlet.Utils.*;
  */
 public class Blob implements Serializable {
 
-    public String content;
-    public String filename;
+    private String content;
+    private String filename;
 
     public Blob(File file) {
         content = readContentsAsString(file);
         filename = file.getName();
     }
 
+    public String getContent() {
+        return content;
+    }
+
+    public String getFilename() {
+        return filename;
+    }
+
     public static String readBlobContent(String blobID) {
-        return readObject(join(Repository.blob, blobID), Blob.class).content;
+        return readObject(join(Repository.blob, blobID), Blob.class).getContent();
     }
 }
