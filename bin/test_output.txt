@@ -1,0 +1,19 @@
+﻿test-global-log:
+ERROR (incorrect output)
+python : Traceback (most recent call last):
+所在位置 C:\Users\19578\AppData\Local\Temp\ps-script-c134eedf-8177-42f4-85ad-15e17196b1a8.ps1:82 字符: 70
++ ... j2\testing; python tester.py --show=all student_tests/test-global-log ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\19578\Desktop\CSAIdiy\CS61B\skeleton-sp21\proj2\testing\tester.py", line 463, in <module>
+    elif not doTest(test):
+             ~~~~~~^^^^^^
+  File "C:\Users\19578\Desktop\CSAIdiy\CS61B\skeleton-sp21\proj2\testing\tester.py", line 364, in doTest
+    reportDetails(test, included_files, line_num)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\19578\Desktop\CSAIdiy\CS61B\skeleton-sp21\proj2\testing\tester.py", line 232, in reportDetails
+    if show <= 0:
+       ^^^^^^^^^
+TypeError: '<=' not supported between instances of 'str' and 'int'

@@ -1,0 +1,47 @@
+# Test branch creation and checkout
+I definitions.inc
+> init
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
+> commit "added wug"
+<<<
+> branch branch1
+<<<
+> status
+=== Branches ===
+\*master
+branch1
+
+=== Staged Files ===
+
+=== Removed Files ===
+
+
+=== Modifications Not Staged For Commit ===
+
+
+=== Untracked Files ===
+
+<<<*
+> checkout branch1
+<<<
+> status
+=== Branches ===
+\*branch1
+master
+
+=== Staged Files ===
+
+=== Removed Files ===
+
+
+=== Modifications Not Staged For Commit ===
+
+
+=== Untracked Files ===
+
+<<<*
+= wug.txt wug.txt
+

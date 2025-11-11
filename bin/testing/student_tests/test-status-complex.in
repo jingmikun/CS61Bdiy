@@ -1,0 +1,31 @@
+# Test status with complex scenario
+I definitions.inc
+> init
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
+> commit "first commit"
+<<<
++ notwug.txt notwug.txt
+> add notwug.txt
+<<<
+> rm wug.txt
+<<<
+> status
+=== Branches ===
+\*master
+
+=== Staged Files ===
+notwug.txt
+
+=== Removed Files ===
+wug.txt
+
+=== Modifications Not Staged For Commit ===
+
+
+=== Untracked Files ===
+
+<<<*
+

@@ -1,0 +1,23 @@
+# Test global-log command
+I definitions.inc
+> init
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
+> commit "first commit"
+<<<
++ notwug.txt notwug.txt
+> add notwug.txt
+<<<
+> commit "second commit"
+<<<
+> global-log
+${COMMIT_LOG}
+first commit
+${COMMIT_LOG}
+second commit
+${COMMIT_LOG}
+initial commit
+<<<*
+
