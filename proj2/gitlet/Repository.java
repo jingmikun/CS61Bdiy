@@ -1212,6 +1212,8 @@ public class Repository {
             //Set the Branch Head Commit;
             remBranch.changeHeadCommitRemote(Branch.readCurrHeadCommit());
             writeObject(rb, remBranch);
+            updateRemoteHeadIfNeeded(remotePath, remoteBranch,
+                    Branch.readCurrHeadCommit());
         }
 
         //Check whether it's a historical commit
@@ -1240,6 +1242,7 @@ public class Repository {
             //Set new headCommit - fast-forwarded
             rbranch.changeHeadCommitRemote(Branch.readCurrHeadCommit());
             writeObject(rb, rbranch);
+            updateRemoteHeadIfNeeded(remotePath, remoteBranch, currHead);
         }
     }
 
@@ -1325,6 +1328,33 @@ public class Repository {
         writeContents(join(remoteCommit, commitIdA), readContents(c));
 
         Commit cm = readObject(join(localCommit, commitIdA), Commit.class);
+    }
+
+    /**
+     * Update the remote HEAD file if we're fast-forwarding the
+     * branch the remote currently has checked out.
+     */
+    private static void updateRemoteHeadIfNeeded(File remotePath,
+            String remoteBranch, String newHeadId) {
+        File remoteCurrentBranch = join(remotePath, "branch",
+                "current_Branch_Name");
+        if (!remoteCurrentBranch.exists()) {
+            return;
+        }
+        String activeBranch = readContentsAsString(remoteCurrentBranch);
+        if (!remoteBranch.equals(activeBranch)) {
+            return;
+        }
+        File remoteHeadFile = join(remotePath, "head");
+        if (!remoteHeadFile.exists()) {
+            try {
+                remoteHeadFile.createNewFile();
+            } catch (IOException e) {
+                System.err.println("???????????O???: "
+                        + e.getMessage());
+            }
+        }
+        writeContents(remoteHeadFile, newHeadId);
     }
 
     /** Copy any blobs present in source repo but missing in destination repo. */
