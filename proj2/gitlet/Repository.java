@@ -143,10 +143,11 @@ public class Repository {
         Commit newCommit = new Commit(message, currentCommitID, parent2);
 
         /**
-         * In this function, we are going to check every blob in parent commit (i.e. the blobs default in
-         * new commit) , if there is a new version of the blob, change it
-         * the time complexity is O(mlogn) m is the file number in the staging area, n is the file number
-         * in the parent commit
+         * In this function, we check each blob in the parent commit (the default
+         * contents for the new commit). If there is a staged blob with new
+         * content, we swap it in. The time complexity is O(m log n): m is the
+         * number of staged files and n is the number of files in the parent
+         * commit.
          */
 
         // Apply staged additions (if any)
@@ -279,13 +280,18 @@ public class Repository {
         List<String> filesInCWD = plainFilenamesIn(CWD);
         Commit curr = Head.returnCurrCommit();
 
+        // Try direct lookup first to support remote-tracking branches (names containing '/')
         Branch b = null;
+        File branchFile = join(branch, branchName);
+        if (branchFile.exists()) {
+            b = readObject(branchFile, Branch.class);
+        }
 
         if (Objects.equals(branchName, Branch.readCurrBranchName())) {
             throw new GitletException("No need to checkout the current branch.");
         }
 
-        if (allBranchName != null) {
+        if (b == null && allBranchName != null) {
             for (String n: allBranchName) {
                 if (Objects.equals(n, branchName)) {
                     b = readObject(join(branch, n), Branch.class);
@@ -504,154 +510,175 @@ public class Repository {
      */
 
     public static void status() {
-        //Print the Branches
-        List<String> allBranchName = plainFilenamesIn(branch);
-        String currBranch = Branch.readCurrBranchName();
+        List<String> branchNames = plainFilenamesIn(branch);
+        String currentBranch = Branch.readCurrBranchName();
+        List<String> stagedNames = plainFilenamesIn(additionByName);
+        List<String> removalIds = plainFilenamesIn(removal);
+        List<String> filesInCwd = plainFilenamesIn(CWD);
+        Commit headCommit = Head.returnCurrCommit();
 
+        printBranchSection(branchNames, currentBranch);
+        printSection("Staged Files", sortedCopy(stagedNames));
+
+        List<String> removedFiles = collectRemovedFiles(removalIds);
+        printSection("Removed Files", removedFiles);
+
+        List<String> modified = collectModifiedNotStaged(
+                filesInCwd, stagedNames, removedFiles, headCommit);
+        printSection("Modifications Not Staged For Commit", modified);
+
+        List<String> untracked = collectUntrackedFiles(
+                filesInCwd, stagedNames, removedFiles, headCommit);
+        printSection("Untracked Files", untracked);
+    }
+
+    private static void printBranchSection(List<String> branchNames,
+            String currentBranch) {
         System.out.println("=== Branches ===");
-        System.out.println("*" + currBranch);
+        System.out.println("*" + currentBranch);
 
-        if (allBranchName != null) {
-            Collections.sort(allBranchName);
-            for (String n : allBranchName) {
-                if (!Objects.equals(n, currBranch)
-                        && !n.equals("current_Branch_Name")) {
-                    System.out.println(n);
-                }
+        for (String name : sortedCopy(branchNames)) {
+            if (!Objects.equals(name, currentBranch)
+                    && !"current_Branch_Name".equals(name)) {
+                System.out.println(name);
             }
         }
         System.out.println();
+    }
 
-        //Print the Staged Files;
-        List<String> allStageId = plainFilenamesIn(addition);
-        List<String> allAdditionStage = plainFilenamesIn(additionByName);
-        System.out.println("=== Staged Files ===");
-
-        if (allAdditionStage != null && !allAdditionStage.isEmpty()) {
-            Collections.sort(allAdditionStage);
-            for (String n : allAdditionStage) {
-                System.out.println(n);
-            }
+    private static void printSection(String title, List<String> entries) {
+        System.out.println("=== " + title + " ===");
+        for (String entry : entries) {
+            System.out.println(entry);
         }
         System.out.println();
-        //Print the Removed Files;
-        List<String> allRemovalStage = plainFilenamesIn(removal);
-        List<String> allRemovalFileName = new ArrayList<>();
+    }
 
-        if (allRemovalStage != null) {
-            for (String i : allRemovalStage) {
-                allRemovalFileName.add(readObject(join(blob, i), Blob.class)
-                        .getFilename());
-            }
+    private static List<String> sortedCopy(List<String> source) {
+        List<String> copy = new ArrayList<>();
+        if (source != null) {
+            copy.addAll(source);
+        }
+        Collections.sort(copy);
+        return copy;
+    }
+
+    private static List<String> collectRemovedFiles(List<String> removalIds) {
+        List<String> removed = new ArrayList<>();
+        if (removalIds == null) {
+            return removed;
         }
 
-        System.out.println("=== Removed Files ===");
-        Collections.sort(allRemovalFileName);
-        for (String n : allRemovalFileName) {
-            System.out.println(n);
+        for (String id : removalIds) {
+            Blob stagedBlob = readObject(join(blob, id), Blob.class);
+            removed.add(stagedBlob.getFilename());
         }
-        System.out.println();
-        //Print the modified but not stage files;
-        // A file in the working directory is modified but not staged if it is
-        //1.Tracked in the current commit, changed in the working directory, but not staged; or
-        //2.Staged for addition, but with different contents than in the working directory; or
-        //3.Staged for addition, but deleted in the working directory; or
-        //4.Not staged for removal, but tracked in the current commit and deleted from the working directory.
+        Collections.sort(removed);
+        return removed;
+    }
 
-        List<String> modifiedNotStaged = new ArrayList<>();
-        List<String> fileInCWD = plainFilenamesIn(CWD);
-        //Read all the files in the curr commit
-        Commit curr = Head.returnCurrCommit();
+    private static List<String> collectModifiedNotStaged(List<String> filesInCwd,
+            List<String> stagedNames, List<String> removedFiles,
+            Commit headCommit) {
+        List<String> modified = new ArrayList<>();
+        addWorkingDirectoryDiffs(filesInCwd, stagedNames, headCommit, modified);
+        addMissingStagedFiles(filesInCwd, stagedNames, modified);
+        addMissingTrackedFiles(filesInCwd, removedFiles, headCommit, modified);
+        Collections.sort(modified);
+        return modified;
+    }
 
-        if (fileInCWD != null) {
-            for (String n : fileInCWD) {
-                //To further compare, we create a temporary blob
-                Blob tmp = new Blob(join(CWD, n));
-                String contentID = sha1(serialize(tmp));
-                //First case:
-                // Case 1: Tracked in current commit
-                if (curr.getBlobs().containsKey(n)) {
-                    String trackedId = curr.getBlobs().get(n);
-                    if (!contentID.equals(trackedId)) {
-                        if (allAdditionStage == null
-                                || !allAdditionStage.contains(n)) {
-                            modifiedNotStaged.add(n + " (modified)");
-                        } else {
-                            String stagedId = readContentsAsString(
-                                    join(additionByName, n));
-                            if (!contentID.equals(stagedId)) {
-                                modifiedNotStaged.add(n + " (modified)");
-                            }
-                        }
-                    }
-                } else if (allAdditionStage != null
-                        && allAdditionStage.contains(n)) {
-                    // Case 2: Only staged (not tracked) - use else if
-                    // to avoid duplication
-                    String stagedId = readContentsAsString(
-                            join(additionByName, n));
-                    if (!contentID.equals(stagedId)) {
-                        modifiedNotStaged.add(n + " (modified)");
-                    }
+    private static void addWorkingDirectoryDiffs(List<String> filesInCwd,
+            List<String> stagedNames, Commit headCommit,
+            List<String> modified) {
+        if (filesInCwd == null) {
+            return;
+        }
+
+        for (String name : filesInCwd) {
+            String workingId = workingBlobId(name);
+            if (headCommit.getBlobs().containsKey(name)) {
+                String trackedId = headCommit.getBlobs().get(name);
+                if (!Objects.equals(workingId, trackedId)
+                        && differsFromStagedVersion(name, workingId,
+                        stagedNames)) {
+                    modified.add(name + " (modified)");
                 }
+            } else if (isStagedForAddition(name, stagedNames)
+                    && differsFromStagedVersion(name, workingId, stagedNames)) {
+                modified.add(name + " (modified)");
             }
         }
-        //Third Case:
-        if (allAdditionStage != null) {
-            for (String n : allAdditionStage) {
-                if (fileInCWD != null) {
-                    if (!fileInCWD.contains(n)) {
-                        modifiedNotStaged.add(n + " (deleted)");
-                    }
-                }
+    }
+
+    private static boolean differsFromStagedVersion(String filename,
+            String workingId, List<String> stagedNames) {
+        if (!isStagedForAddition(filename, stagedNames)) {
+            return true;
+        }
+        String stagedId = stagedBlobId(filename);
+        return !Objects.equals(workingId, stagedId);
+    }
+
+    private static boolean isStagedForAddition(String filename,
+            List<String> stagedNames) {
+        return stagedNames != null && stagedNames.contains(filename);
+    }
+
+    private static String stagedBlobId(String filename) {
+        File staged = join(additionByName, filename);
+        if (!staged.exists()) {
+            return null;
+        }
+        return readContentsAsString(staged);
+    }
+
+    private static void addMissingStagedFiles(List<String> filesInCwd,
+            List<String> stagedNames, List<String> modified) {
+        if (stagedNames == null) {
+            return;
+        }
+        for (String name : stagedNames) {
+            if (filesInCwd == null || !filesInCwd.contains(name)) {
+                modified.add(name + " (deleted)");
             }
         }
+    }
 
-        //Fourth Case:
-        for (String n : curr.getBlobs().keySet()) {
-            if (fileInCWD != null) {
-                if (!fileInCWD.contains(n)
-                        && !allRemovalFileName.contains(n)) {
-                    modifiedNotStaged.add(n + " (deleted)");
-                }
+    private static void addMissingTrackedFiles(List<String> filesInCwd,
+            List<String> removedFiles, Commit headCommit,
+            List<String> modified) {
+        Set<String> cwd = filesInCwd == null
+                ? Collections.emptySet() : new HashSet<>(filesInCwd);
+        for (String tracked : headCommit.getBlobs().keySet()) {
+            if (!cwd.contains(tracked) && !removedFiles.contains(tracked)) {
+                modified.add(tracked + " (deleted)");
             }
         }
+    }
 
-        Collections.sort(modifiedNotStaged);
-        System.out.println("=== Modifications Not Staged For Commit ===");
-        for (String s : modifiedNotStaged) {
-            System.out.println(s);
-        }
-        System.out.println();
+    private static String workingBlobId(String filename) {
+        Blob tmp = new Blob(join(CWD, filename));
+        return sha1(serialize(tmp));
+    }
 
-        //Print the untracked files;
-        //The files in the CWD that aren't tracked by current commit nor staged
-        // Files present in the working directory but neither staged for addition nor tracked.
-        // This includes files that have been staged for removal, but then re-created without Gitlet?? knowledge.
-        // Ignore any subdirectories that may have been introduced, since Gitlet does not deal with them.
-
+    private static List<String> collectUntrackedFiles(List<String> filesInCwd,
+            List<String> stagedNames, List<String> removedFiles,
+            Commit headCommit) {
         List<String> untracked = new ArrayList<>();
-        if (fileInCWD != null) {
-            for (String s : fileInCWD) {
-                // Exclude files that are staged for addition or removal,
-                // or tracked in current commit
-                boolean isStagedForAddition = allAdditionStage != null
-                        && allAdditionStage.contains(s);
-                boolean isStagedForRemoval = allRemovalFileName.contains(s);
-                boolean isTracked = curr.getBlobs().containsKey(s);
-                
-                if (!isStagedForAddition && !isStagedForRemoval && !isTracked) {
-                    untracked.add(s);
-                }
+        if (filesInCwd == null) {
+            return untracked;
+        }
+        for (String name : filesInCwd) {
+            boolean stagedAdd = isStagedForAddition(name, stagedNames);
+            boolean stagedRemoval = removedFiles.contains(name);
+            boolean tracked = headCommit.getBlobs().containsKey(name);
+            if (!stagedAdd && !stagedRemoval && !tracked) {
+                untracked.add(name);
             }
         }
-
         Collections.sort(untracked);
-        System.out.println("=== Untracked Files ===");
-        for (String s : untracked) {
-            System.out.println(s);
-        }
-        System.out.println();
+        return untracked;
     }
 
     /** Create a new branch given the branch name, the head commit of this branch is
@@ -740,385 +767,267 @@ public class Repository {
     }
 
     public static void merge(String branchName) {
-        //Print some errors:
-        List<String> adds = plainFilenamesIn(addition);
-        List<String> rms = plainFilenamesIn(removal);
-        if ((adds != null && !adds.isEmpty()) || (rms != null && !rms.isEmpty())) {
-            throw new GitletException("You have uncommitted changes.");
-        }
-        File b = join(branch, branchName);
-
-        if (!b.exists()) {
+        ensureMergeStagingClean();
+        File targetBranch = join(branch, branchName);
+        if (!targetBranch.exists()) {
             throw new GitletException("A branch with that name does not exist.");
         }
-
         if (Branch.readCurrBranchName().equals(branchName)) {
             System.out.println("Cannot merge a branch with itself.");
             return;
         }
 
-        //Find the split point
-        String givenHead = Branch.readBranch(branchName).getHeadCommit();
-        String currHead = Branch.readCurrHeadCommit();
-        
-        // Check if given branch is an ancestor of current branch
-        // This means given branch's head should be reachable from current branch's head
-        if (isAncestor(givenHead, currHead)) {
-            System.out.println("Given branch is an ancestor of the current branch.");
-            return;
-        }
-        
-        String sp = findSplitPoint(Branch.readBranch(branchName),
-                Branch.readBranch(Branch.readCurrBranchName()));
-
-        //Split point exceptions - this check is redundant since
-        // isAncestor above already handles it. But keeping it as a
-        // defensive check in case split point equals given head for
-        // other reasons
-        if (sp != null && sp.equals(givenHead)) {
-            System.out.println("Given branch is an ancestor of the current branch.");
+        MergeContext ctx = buildMergeContext(branchName);
+        if (handleTrivialMergeEndings(ctx)) {
             return;
         }
 
-        // Fast-forward: when split point equals current head
-        // According to spec: "If the split point is the current
-        // branch, then the effect is to check out the given branch,
-        // and the operation ends after printing the message"
-        if (sp != null && sp.equals(Branch.readCurrHeadCommit())) {
-            checkoutWithBranch(branchName);
+        ensureNoUntrackedConflicts(ctx);
+        boolean hasConflict = applyMergeChanges(ctx);
+        finalizeMerge(branchName, ctx.givenHeadId, hasConflict);
+    }
+
+    private static void ensureMergeStagingClean() {
+        List<String> adds = plainFilenamesIn(addition);
+        List<String> rms = plainFilenamesIn(removal);
+        if ((adds != null && !adds.isEmpty()) || (rms != null && !rms.isEmpty())) {
+            throw new GitletException("You have uncommitted changes.");
+        }
+    }
+
+    private static MergeContext buildMergeContext(String branchName) {
+        Branch givenBranch = Branch.readBranch(branchName);
+        Branch currentBranch = Branch.readBranch(Branch.readCurrBranchName());
+        String givenHeadId = givenBranch.getHeadCommit();
+        String currentHeadId = currentBranch.getHeadCommit();
+        String splitPointId = findSplitPoint(givenBranch, currentBranch);
+        Commit splitCommit = splitPointId == null ? null
+                : Commit.readCommit(splitPointId);
+        return new MergeContext(
+                branchName,
+                givenHeadId,
+                currentHeadId,
+                Commit.readCommit(givenHeadId),
+                Commit.readCommit(currentHeadId),
+                splitCommit,
+                splitPointId,
+                plainFilenamesIn(CWD),
+                plainFilenamesIn(additionByName));
+    }
+
+    private static boolean handleTrivialMergeEndings(MergeContext ctx) {
+        if (isAncestor(ctx.givenHeadId, ctx.currentHeadId)) {
+            System.out.println("Given branch is an ancestor of the current branch.");
+            return true;
+        }
+        if (ctx.splitPointId != null && ctx.splitPointId.equals(ctx.givenHeadId)) {
+            System.out.println("Given branch is an ancestor of the current branch.");
+            return true;
+        }
+        if (ctx.splitPointId != null && ctx.splitPointId.equals(ctx.currentHeadId)) {
+            checkoutWithBranch(ctx.branchName);
             System.out.println("Current branch fast-forwarded.");
+            return true;
+        }
+        return false;
+    }
+
+    private static void ensureNoUntrackedConflicts(MergeContext ctx) {
+        if (ctx.filesInCwd == null) {
             return;
         }
+        Map<String, String> curr = ctx.currentCommit.getBlobs();
+        Map<String, String> given = ctx.givenCommit.getBlobs();
+        Map<String, String> split = ctx.splitCommit == null
+                ? Collections.emptyMap() : ctx.splitCommit.getBlobs();
 
-        //Normal case
-        //Check the untracked files in curr commit, which exists
-        // in CWD and given commit
-        Commit givenHeadCommit = Commit.readCommit(
-                Branch.readBranch(branchName).getHeadCommit());
-        Commit currHeadCommit = Commit.readCommit(
-                Branch.readCurrHeadCommit());
-        Commit spCommit = Commit.readCommit(sp);
+        for (String name : ctx.filesInCwd) {
+            if (curr.containsKey(name)) {
+                continue;
+            }
+            if (!given.containsKey(name)) {
+                continue;
+            }
+            if (isBothDeleted(name, curr, given, split)) {
+                continue;
+            }
+            if (ctx.stagedAdditionNames != null
+                    && ctx.stagedAdditionNames.contains(name)) {
+                continue;
+            }
+            File cwdFile = join(CWD, name);
+            if (!cwdFile.exists()) {
+                continue;
+            }
+            String givenContent = normalizeLineEndings(
+                    Blob.readBlobContent(given.get(name)));
+            String cwdContent = normalizeLineEndings(
+                    readContentsAsString(cwdFile));
+            if (Objects.equals(cwdContent, givenContent)) {
+                continue;
+            }
+            throw new GitletException("There is an untracked file in the way; "
+                    + "delete it, or add and commit it first.");
+        }
+    }
 
-        // Track if merge encountered conflicts
+    private static boolean isBothDeleted(String name, Map<String, String> curr,
+            Map<String, String> given, Map<String, String> split) {
+        return split.containsKey(name)
+                && !curr.containsKey(name)
+                && !given.containsKey(name);
+    }
+
+    private static boolean applyMergeChanges(MergeContext ctx) {
+        Map<String, String> split = ctx.splitCommit == null
+                ? Collections.emptyMap() : ctx.splitCommit.getBlobs();
+        Map<String, String> curr = ctx.currentCommit.getBlobs();
+        Map<String, String> given = ctx.givenCommit.getBlobs();
+        Set<String> allFiles = new HashSet<>();
+        allFiles.addAll(split.keySet());
+        allFiles.addAll(curr.keySet());
+        allFiles.addAll(given.keySet());
+
         boolean hasConflict = false;
+        for (String file : allFiles) {
+            String splitId = split.get(file);
+            String currId = curr.get(file);
+            String givenId = given.get(file);
 
-        // Check untracked files that would be overwritten
-        // First, collect all files that exist in CWD
-        List<String> filesInCWD = plainFilenamesIn(CWD);
-        List<String> stagedAdditionNames = plainFilenamesIn(additionByName);
-        if (filesInCWD != null) {
-            for (String n : filesInCWD) {
-                // Skip if file is deleted in both branches (will be
-                // handled in both delete case)
-                boolean bothDeleted = spCommit.getBlobs()
-                        .containsKey(n)
-                        && !currHeadCommit.getBlobs().containsKey(n)
-                        && !givenHeadCommit.getBlobs().containsKey(n);
-                if (bothDeleted) {
-                    continue; // Skip this file, it will be handled later
-                }
-                // Check if file would be overwritten by given branch
-                boolean stagedForAddition = stagedAdditionNames != null
-                        && stagedAdditionNames.contains(n);
-                if (!currHeadCommit.getBlobs().containsKey(n)
-                        && givenHeadCommit.getBlobs().containsKey(n)) {
-                    if (stagedForAddition) {
-                        continue; // considered tracked for purposes of conflict check
-                    }
-                    File cwdFile = join(CWD, n);
-                    if (!cwdFile.exists()) {
-                        continue; // nothing to overwrite
-                    }
+            if (splitId == null) {
+                hasConflict |= handleFileWithoutSplit(ctx, file, currId, givenId);
+                continue;
+            }
 
-                    String givenBlobId = givenHeadCommit.getBlobs().get(n);
-                    String givenContent = normalizeLineEndings(
-                            Blob.readBlobContent(givenBlobId));
-                    String cwdContent = normalizeLineEndings(
-                            readContentsAsString(cwdFile));
-                    if (Objects.equals(cwdContent, givenContent)) {
-                        continue; // safe: file matches given branch version
-                    }
-                    throw new GitletException("There is an untracked file in "
-                            + "the way; delete it, or add and commit it first.");
+            if (currId != null && currId.equals(splitId) && givenId == null) {
+                rm(file);
+                continue;
+            }
+
+            if (currId == null && givenId == null) {
+                continue;
+            }
+
+            if (!Objects.equals(currId, splitId)
+                    && Objects.equals(givenId, splitId)) {
+                continue;
+            }
+
+            if (Objects.equals(currId, splitId)
+                    && !Objects.equals(givenId, splitId)
+                    && givenId != null) {
+                stageGivenVersion(ctx, file);
+                continue;
+            }
+
+            if (!Objects.equals(currId, splitId)
+                    && !Objects.equals(givenId, splitId)) {
+                if (!Objects.equals(currId, givenId)) {
+                    createConflictFile(file, currId, givenId);
+                    hasConflict = true;
                 }
+                continue;
             }
         }
-        /* Any files that have been modified in the given branch since
-          the split point, but not modified in the current branch since
-          the split point should be changed to their versions in the
-          given branch (checked out from the commit at the front of the
-          given branch).
-         */
-        /*Any files that have been modified in the current branch but
-          not in the given branch since the split point should stay as
-          they are.
-         */
-        for (String n : givenHeadCommit.getBlobs().keySet()) {
-            //Check is modified since sp
-            if (spCommit.getBlobs().containsKey(n)
-                    && !Objects.equals(spCommit.getBlobs().get(n),
-                            givenHeadCommit.getBlobs().get(n))) {
-                if (currHeadCommit.getBlobs().containsKey(n)
-                        && Objects.equals(spCommit.getBlobs().get(n),
-                                currHeadCommit.getBlobs().get(n))) {
-                    //modified in given branch but not modified in curr branch
-                    //change the version
-                    checkout(Branch.readBranch(branchName)
-                            .getHeadCommit(), n);
-                    add(join(CWD, n));
-                }
-            }
-            //Any files that were not present at the split point
-            //and are present only in the given branch should be checked
-            //out and staged. But if it's also in current branch with
-            //different content, it's a conflict (handled later)
-            if (!spCommit.getBlobs().containsKey(n)
-                    && !currHeadCommit.getBlobs().containsKey(n)) {
-                checkout(Branch.readBranch(branchName)
-                        .getHeadCommit(), n);
-                add(join(CWD, n));
-            }
-            // Conflict: new file in both branches with different content
-            if (!spCommit.getBlobs().containsKey(n)
-                    && currHeadCommit.getBlobs().containsKey(n)
-                    && !Objects.equals(currHeadCommit.getBlobs().get(n),
-                            givenHeadCommit.getBlobs().get(n))) {
-                String givenContent = Blob.readBlobContent(
-                        givenHeadCommit.getBlobs().get(n));
-                String currContent = Blob.readBlobContent(
-                        currHeadCommit.getBlobs().get(n));
-                // Handle null content - treat deleted files as empty
-                // strings
-                if (givenContent == null) {
-                    givenContent = "";
-                }
-                if (currContent == null) {
-                    currContent = "";
-                }
-                // Format: <<<<<<< HEAD\n<curr>=======\n<given>>>>>>>\n
-                // Use straight concatenation - if file has no newline
-                // at end, separators will be on same line
-                String conflictContent = "<<<<<<< HEAD\n" + currContent
-                        + "=======\n" + givenContent + ">>>>>>>\n";
-                writeContents(join(CWD, n), conflictContent);
-                add(join(CWD, n)); // Stage the conflict file
-                hasConflict = true; // Mark that we encountered a conflict
-                // Continue to create merge commit (don't throw exception)
-            }
-            //Merge Conflicts
-            // Conflict: file existed at split point, deleted in
-            // current branch, but modified in given branch
-            // Note: If file is also deleted in given branch, no
-            // conflict (handled in both delete case)
-            if (spCommit.getBlobs().containsKey(n)
-                    && !currHeadCommit.getBlobs().containsKey(n)
-                    && givenHeadCommit.getBlobs().containsKey(n)
-                    && !Objects.equals(givenHeadCommit.getBlobs().get(n),
-                            spCommit.getBlobs().get(n))) {
-                String givenContent = Blob.readBlobContent(
-                        givenHeadCommit.getBlobs().get(n));
-                // Handle null content - treat deleted file as empty
-                // string
-                if (givenContent == null) {
-                    givenContent = "";
-                }
-                // Format: <<<<<<< HEAD\n=======\n<given>>>>>>>\n
-                // Use straight concatenation - deleted file in current
-                // branch is empty
-                String conflictContent = "<<<<<<< HEAD\n=======\n"
-                        + givenContent + ">>>>>>>\n";
+        return hasConflict;
+    }
 
-                writeContents(join(CWD, n), conflictContent);
-                add(join(CWD, n)); // Stage the conflict file
-                hasConflict = true; // Mark that we encountered a conflict
-                // Continue to create merge commit (don't throw exception)
-            }
+    private static boolean handleFileWithoutSplit(MergeContext ctx, String file,
+            String currId, String givenId) {
+        if (currId == null && givenId == null) {
+            return false;
         }
-
-        // Check files from split point to handle special cases
-        for (String splitFile : spCommit.getBlobs().keySet()) {
-            // Handle both delete case: file existed at split point,
-            // deleted in both branches
-            // According to spec: "If a file was removed from both the
-            // current and given branch, but a file of the same name is
-            // present in the working directory, it is left alone and
-            // continues to be absent (not tracked nor staged) in the merge."
-            if (!currHeadCommit.getBlobs().containsKey(splitFile)
-                    && !givenHeadCommit.getBlobs().containsKey(splitFile)) {
-                // File deleted in both branches - leave working directory file alone (do nothing)
-                // The file will remain untracked and unstaged
-                continue; // Skip this file
-            }
-            // Handle: file existed at split point, unmodified in given
-            // branch, absent in current branch
-            // According to spec: "Any files present at the split point,
-            // unmodified in the given branch, and absent in the current
-            // branch should remain absent."
-            // This case is already handled implicitly - if file is not
-            // in currHeadCommit, it won't be processed in the
-            // currHeadCommit loop, so it remains absent. No action needed.
+        if (currId == null && givenId != null) {
+            stageGivenVersion(ctx, file);
+            return false;
         }
-        
-        for (String s : currHeadCommit.getBlobs().keySet()) {
-            //Any files present at the split point, unmodified in the
-            //current branch, and absent in the given branch should be
-            //removed (and untracked).
-            if (spCommit.getBlobs().containsKey(s)
-                    && Objects.equals(currHeadCommit.getBlobs().get(s),
-                            spCommit.getBlobs().get(s))
-                    && !givenHeadCommit.getBlobs().containsKey(s)) {
-                rm(s);
-                continue; // Skip conflict checking for this file
-            }
-
-            //Merge conflicts
-            // Conflict occurs when:
-            // 1. File exists in both branches but with different content
-            // 2. File was modified in both branches since split point
-            //    (if split point exists)
-            //    OR file is new in both branches (if split point doesn't
-            //    exist) with different content
-            if (givenHeadCommit.getBlobs().containsKey(s)
-                    && !givenHeadCommit.getBlobs().get(s)
-                            .equals(currHeadCommit.getBlobs().get(s))) {
-                boolean isConflict = false;
-                
-                if (spCommit.getBlobs().containsKey(s)) {
-                    // File existed at split point
-                    boolean currModified = !Objects.equals(
-                            spCommit.getBlobs().get(s),
-                            currHeadCommit.getBlobs().get(s));
-                    boolean givenModified = !Objects.equals(
-                            spCommit.getBlobs().get(s),
-                            givenHeadCommit.getBlobs().get(s));
-                    
-                    if (currModified && givenModified) {
-                        // Both modified - check if results are the same
-                        // If results are the same, auto-merge (no conflict)
-                        // If results are different, conflict
-                        if (!Objects.equals(currHeadCommit.getBlobs()
-                                .get(s), givenHeadCommit.getBlobs()
-                                .get(s))) {
-                            isConflict = true;
-                        }
-                        // If results are the same, isConflict stays false,
-                        // file stays as is (auto-merged)
-                    } else if (currModified && !givenModified) {
-                        // Current modified, given unmodified - keep current
-                        // (already in working directory)
-                        // No action needed, file stays as is
-                        continue;
-                    } else if (!currModified && givenModified) {
-                        // Current unmodified, given modified - should be
-                        // handled in givenHeadCommit loop
-                        // But if we reach here, it means it wasn't handled
-                        // there (maybe conflict case)
-                        // Actually this case should be handled in lines
-                        // 695-701, so if we reach here it might be an
-                        // error, but to be safe, we'll skip it
-                        continue;
-                    }
-                    // If neither modified but contents are different,
-                    // that shouldn't happen
-                } else {
-                    // File didn't exist at split point - new in both
-                    // branches
-                    // If both have it but different, it's a conflict
-                    isConflict = true;
-                }
-                
-                if (isConflict) {
-                    String givenContent = Blob.readBlobContent(
-                            givenHeadCommit.getBlobs().get(s));
-                    String currContent = Blob.readBlobContent(
-                            currHeadCommit.getBlobs().get(s));
-                    // Handle null content - treat deleted files as empty
-                    // strings
-                    if (givenContent == null) {
-                        givenContent = "";
-                    }
-                    if (currContent == null) {
-                        currContent = "";
-                    }
-                    // Format: <<<<<<< HEAD\n<curr>=======\n<given>>>>>>>\n
-                    // Use straight concatenation - if file has no newline
-                    // at end, separators will be on same line
-                    String conflictContent = "<<<<<<< HEAD\n" + currContent
-                            + "=======\n" + givenContent + ">>>>>>>\n";
-
-                    writeContents(join(CWD, s), conflictContent);
-                    add(join(CWD, s)); // Stage the conflict file
-                    hasConflict = true; // Mark that we encountered a conflict
-                    // Continue to create merge commit (don't throw exception)
-                }
-            }
-
-            //Merge Conflicts
-            // Conflict: file existed at split point, deleted in given
-            // branch, but modified in current branch
-            // This must be checked BEFORE the "both branches have
-            // different content" check
-            if (spCommit.getBlobs().containsKey(s)
-                    && !givenHeadCommit.getBlobs().containsKey(s)
-                    && !Objects.equals(currHeadCommit.getBlobs().get(s),
-                            spCommit.getBlobs().get(s))) {
-                String currContent = Blob.readBlobContent(
-                        currHeadCommit.getBlobs().get(s));
-                // Handle null content - treat deleted file as empty string
-                if (currContent == null) {
-                    currContent = "";
-                }
-                // Format: <<<<<<< HEAD\n<curr>=======\n>>>>>>>\n
-                // Use straight concatenation - deleted file in given
-                // branch is empty
-                String conflictContent = "<<<<<<< HEAD\n" + currContent
-                        + "=======\n>>>>>>>\n";
-
-                writeContents(join(CWD, s), conflictContent);
-                add(join(CWD, s)); // Stage the conflict file
-                hasConflict = true; // Mark that we encountered a conflict
-                continue; // Skip further processing for this file
-            }
+        if (currId != null && givenId == null) {
+            return false;
         }
+        if (Objects.equals(currId, givenId)) {
+            return false;
+        }
+        createConflictFile(file, currId, givenId);
+        return true;
+    }
 
-        // For merge commits, even if no files are staged, we still need to create the commit
-        // Check if staging area is empty
+    private static void stageGivenVersion(MergeContext ctx, String file) {
+        checkout(ctx.givenHeadId, file);
+        add(join(CWD, file));
+    }
+
+    private static void createConflictFile(String file, String currBlobId,
+            String givenBlobId) {
+        String currContent = currBlobId == null
+                ? "" : Blob.readBlobContent(currBlobId);
+        String givenContent = givenBlobId == null
+                ? "" : Blob.readBlobContent(givenBlobId);
+        if (currContent == null) {
+            currContent = "";
+        }
+        if (givenContent == null) {
+            givenContent = "";
+        }
+        String conflictContent = "<<<<<<< HEAD\n" + currContent
+                + "=======\n" + givenContent + ">>>>>>>\n";
+        writeContents(join(CWD, file), conflictContent);
+        add(join(CWD, file));
+    }
+
+    private static void finalizeMerge(String branchName, String givenHeadId,
+            boolean hasConflict) {
         List<String> stagedAdds = plainFilenamesIn(addition);
-        List<String> stagedRms = plainFilenamesIn(removal);
-        boolean noStagedAdds = (stagedAdds == null || stagedAdds.isEmpty());
-        boolean noStagedRemoves = (stagedRms == null || stagedRms.isEmpty());
-        
-        if (noStagedAdds && noStagedRemoves) {
-            // No changes staged, but this is a merge - create commit
-            // anyway
-            // This can happen when both branches deleted the same file,
-            // or other cases
-            String currentCommitId = Branch.readCurrHeadCommit();
-            Commit newCommit = new Commit("Merged " + branchName + " into "
-                    + Branch.readCurrBranchName() + ".",
-                    currentCommitId,
-                    Branch.readBranch(branchName).getHeadCommit());
-            String mergeCommitId = newCommit.createCommitFile();
-            clearStaging();
-            Branch.addCommit(Branch.readCurrBranchName(),
-                    mergeCommitId);
-            Head.writeHeadId(mergeCommitId);
+        List<String> stagedRemovals = plainFilenamesIn(removal);
+        boolean hasAdds = stagedAdds != null && !stagedAdds.isEmpty();
+        boolean hasRemoves = stagedRemovals != null && !stagedRemovals.isEmpty();
+        String message = "Merged " + branchName + " into "
+                + Branch.readCurrBranchName() + ".";
+
+        if (!hasAdds && !hasRemoves) {
+            createMergeCommitWithoutStage(message, givenHeadId);
         } else {
-            // Use the actual current head commit ID, not the calculated one
-            // Temporarily set HEAD to use the correct commit ID for
-            // commit() method. But actually, commit() uses
-            // sha1(serialize(Head.returnCurrCommit())). So we need to
-            // ensure HEAD points to the correct commit. Actually,
-            // commit() should work correctly as HEAD should already
-            // point to the right commit
-            commit("Merged " + branchName + " into "
-                    + Branch.readCurrBranchName() + ".",
-                    Branch.readBranch(branchName).getHeadCommit());
+            commit(message, givenHeadId);
         }
-        
-        // After committing, check if we encountered conflicts and print message
+
         if (hasConflict) {
             System.out.println("Encountered a merge conflict.");
+        }
+    }
+
+    private static void createMergeCommitWithoutStage(String message,
+            String parent2) {
+        String currentCommitId = Branch.readCurrHeadCommit();
+        Commit newCommit = new Commit(message, currentCommitId, parent2);
+        String mergeCommitId = newCommit.createCommitFile();
+        clearStaging();
+        Branch.addCommit(Branch.readCurrBranchName(), mergeCommitId);
+        Head.writeHeadId(mergeCommitId);
+    }
+
+    private static final class MergeContext {
+        private final String branchName;
+        private final String givenHeadId;
+        private final String currentHeadId;
+        private final Commit givenCommit;
+        private final Commit currentCommit;
+        private final Commit splitCommit;
+        private final String splitPointId;
+        private final List<String> filesInCwd;
+        private final List<String> stagedAdditionNames;
+
+        private MergeContext(String branchName, String givenHeadId,
+                String currentHeadId, Commit givenCommit, Commit currentCommit,
+                Commit splitCommit, String splitPointId, List<String> filesInCwd,
+                List<String> stagedAdditionNames) {
+            this.branchName = branchName;
+            this.givenHeadId = givenHeadId;
+            this.currentHeadId = currentHeadId;
+            this.givenCommit = givenCommit;
+            this.currentCommit = currentCommit;
+            this.splitCommit = splitCommit;
+            this.splitPointId = splitPointId;
+            this.filesInCwd = filesInCwd;
+            this.stagedAdditionNames = stagedAdditionNames;
         }
     }
 
@@ -1248,11 +1157,13 @@ public class Repository {
         remoteTobeDeleted.delete();
     }
 
-    /** Attempts to append the current branch?? commits to the end of the given branch
-     * at the given remote.This command only works if the remote branch?? head is in the history
-     * of the current local head. which means that the local branch contains some commits in the future
-     * of the remote branch. In this case, append the future commits to the remote branch.
-     * Then, the remote should reset to the front of the appended commits
+    /**
+     * Attempts to append the current branch commits to the end of the given
+     * branch at the specified remote. This only works if the remote branch head
+     * is in the history of the current local head (meaning the local branch has
+     * commits that extend the remote branch). In that case, copy the future
+     * commits to the remote branch and reset the remote pointer to the newest
+     * commit.
      * @param remoteName
      * @param remoteBranch
      */
